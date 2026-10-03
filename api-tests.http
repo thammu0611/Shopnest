@@ -1,0 +1,243 @@
+### ShopNest API — open in VS Code (REST Client extension) or IntelliJ HTTP Client
+### Run them top to bottom; the login request stores the JWT in a variable.
+
+@host = http://localhost:8080/api
+
+### 1. Register a new customer
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Ridha F",
+  "email": "ridha@example.com",
+  "password": "Test@123",
+  "phone": "9876543210"
+}
+
+### 2. Login as the seeded customer
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@shopnest.com",
+  "password": "User@123"
+}
+
+@token = {{login.response.body.token}}
+
+### 3. Who am I
+GET {{host}}/auth/me
+Authorization: Bearer {{token}}
+
+### 4. Browse the catalogue (public)
+GET {{host}}/products?page=0&size=8&sort=price_asc
+
+### 5. Search + filter
+GET {{host}}/products?search=headphones
+
+### 6. Single product
+GET {{host}}/products/1
+
+### 7. Categories (public)
+GET {{host}}/categories
+
+### 8. Add to cart
+POST {{host}}/cart/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "productId": 1, "quantity": 2 }
+
+### 9. View cart
+GET {{host}}/cart
+Authorization: Bearer {{token}}
+
+### 10. Update a cart line (use the id returned above)
+PUT {{host}}/cart/items/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "quantity": 3 }
+
+### 11. Checkout (mock payment)
+POST {{host}}/orders/checkout
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "shippingName": "Ridha F",
+  "shippingPhone": "9876543210",
+  "shippingAddress": "12 MG Road, Flat 4B",
+  "shippingCity": "Chennai",
+  "shippingPincode": "600001",
+  "paymentMethod": "CARD"
+}
+
+### 12. My orders
+GET {{host}}/orders
+Authorization: Bearer {{token}}
+
+### ---------------- ADMIN ----------------
+
+### 13. Login as admin
+# @name adminLogin
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@shopnest.com",
+  "password": "Admin@123"
+}
+
+@adminToken = {{adminLogin.response.body.token}}
+
+### 14. Create a product
+POST {{host}}/products
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Bluetooth Speaker",
+  "description": "Portable 20W speaker with 12h playtime.",
+  "price": 2199.00,
+  "imageUrl": "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&q=80",
+  "stock": 30,
+  "active": true,
+  "categoryId": 1
+}
+
+### 15. Update a product
+PUT {{host}}/products/1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Wireless Noise-Cancelling Headphones",
+  "description": "Updated description.",
+  "price": 4599.00,
+  "imageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80",
+  "stock": 35,
+  "active": true,
+  "categoryId": 1
+}
+
+### 16. Admin catalogue (includes hidden products)
+GET {{host}}/admin/products
+Authorization: Bearer {{adminToken}}
+
+### 17. All orders
+GET {{host}}/admin/orders
+Authorization: Bearer {{adminToken}}
+
+### 18. Move an order along
+PUT {{host}}/admin/orders/1/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "status": "SHIPPED" }
+
+### 19. Negative test — customer token on an admin route (expect 403)
+GET {{host}}/admin/orders
+Authorization: Bearer {{token}}
+
+### 20. Negative test — no token on a protected route (expect 401)
+GET {{host}}/cart
+
+# ============================================================
+#  Wishlist
+# ============================================================
+
+### 21. My wishlist
+GET {{host}}/wishlist
+Authorization: Bearer {{token}}
+
+### 22. Save a product (idempotent - saving twice is not an error)
+POST {{host}}/wishlist
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "productId": 1 }
+
+### 23. Just the saved ids (drives the heart icons on the grid)
+GET {{host}}/wishlist/ids
+Authorization: Bearer {{token}}
+
+### 24. Move a saved product into the cart
+POST {{host}}/wishlist/1/move-to-cart
+Authorization: Bearer {{token}}
+
+### 25. Unsave a product
+DELETE {{host}}/wishlist/1
+Authorization: Bearer {{token}}
+
+# ============================================================
+#  Ratings & reviews
+# ============================================================
+
+### 26. Reviews for a product (public - no token needed)
+GET {{host}}/products/1/reviews
+
+### 27. Post a review (posting again edits it rather than duplicating)
+POST {{host}}/products/1/reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "rating": 5, "comment": "Exactly what I needed." }
+
+### 28. Remove my own review
+DELETE {{host}}/products/1/reviews/mine
+Authorization: Bearer {{token}}
+
+### 29. Negative test - rating outside 1..5 (expect 400)
+POST {{host}}/products/1/reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "rating": 9 }
+
+# ============================================================
+#  Account
+# ============================================================
+
+### 30. My profile plus order/wishlist/review counts
+GET {{host}}/account
+Authorization: Bearer {{token}}
+
+### 31. Update name and phone
+PUT {{host}}/account
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Demo Customer", "phone": "9876543210" }
+
+### 32. Change password
+PUT {{host}}/account/password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "currentPassword": "User@123", "newPassword": "User@1234" }
+
+# ============================================================
+#  Order detail & cancellation
+# ============================================================
+
+### 33. Cancel my own order (only before it ships; restores stock)
+PUT {{host}}/orders/1/cancel
+Authorization: Bearer {{token}}
+
+### 34. Negative test - cancel an order that already shipped (expect 400)
+PUT {{host}}/orders/2/cancel
+Authorization: Bearer {{token}}
+
+# ============================================================
+#  Admin dashboard
+# ============================================================
+
+### 35. Revenue, order counts by status, best sellers, low stock
+GET {{host}}/admin/dashboard
+Authorization: Bearer {{adminToken}}
+
+### 36. Negative test - dashboard with a customer token (expect 403)
+GET {{host}}/admin/dashboard
+Authorization: Bearer {{token}}

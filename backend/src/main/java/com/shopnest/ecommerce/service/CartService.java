@@ -27,10 +27,37 @@ public class CartService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final CouponService couponService;
 
     @Transactional(readOnly = true)
     public CartResponse getCart(String email) {
-        return buildCart(cartItemRepository.findByUserId(currentUser(email).getId()));
+        User user = currentUser(email);
+        return buildCart(cartItemRepository.findByUserId(user.getId()), user);
+    }
+
+    /** Validates the code against the current cart and remembers it until checkout. */
+    @Transactional
+    public CartResponse applyCoupon(String email, String code) {
+        User user = currentUser(email);
+        List<CartItem> items = cartItemRepository.findByUserId(user.getId());
+        if (items.isEmpty()) {
+            throw new BadRequestException("Add something to your bag before applying a code");
+        }
+        CouponService.Evaluation evaluation = couponService.evaluate(code, subtotalOf(items), user);
+        if (!evaluation.valid()) {
+            throw new BadRequestException(evaluation.message());
+        }
+        user.setCartCouponCode(evaluation.coupon().getCode());
+        userRepository.save(user);
+        return buildCart(items, user);
+    }
+
+    @Transactional
+    public CartResponse removeCoupon(String email) {
+        User user = currentUser(email);
+        user.setCartCouponCode(null);
+        userRepository.save(user);
+        return buildCart(cartItemRepository.findByUserId(user.getId()), user);
     }
 
     @Transactional
@@ -54,7 +81,7 @@ public class CartService {
         item.setQuantity(newQuantity);
         cartItemRepository.save(item);
 
-        return buildCart(cartItemRepository.findByUserId(user.getId()));
+        return buildCart(cartItemRepository.findByUserId(user.getId()), user);
     }
 
     @Transactional
@@ -66,20 +93,21 @@ public class CartService {
         item.setQuantity(request.quantity());
         cartItemRepository.save(item);
 
-        return buildCart(cartItemRepository.findByUserId(user.getId()));
+        return buildCart(cartItemRepository.findByUserId(user.getId()), user);
     }
 
     @Transactional
     public CartResponse removeItem(String email, Long cartItemId) {
         User user = currentUser(email);
         cartItemRepository.delete(ownedItem(user.getId(), cartItemId));
-        return buildCart(cartItemRepository.findByUserId(user.getId()));
+        return buildCart(cartItemRepository.findByUserId(user.getId()), user);
     }
 
     @Transactional
     public CartResponse clear(String email) {
-        cartItemRepository.deleteByUserId(currentUser(email).getId());
-        return buildCart(List.of());
+        User user = currentUser(email);
+        cartItemRepository.deleteByUserId(user.getId());
+        return buildCart(List.of(), user);
     }
 
     // ---------- helpers ----------
@@ -105,23 +133,42 @@ public class CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
-    static CartResponse buildCart(List<CartItem> items) {
+    /** Shipping is charged on the pre-discount subtotal. */
+    public static BigDecimal shippingFor(BigDecimal subtotal, boolean empty) {
+        return (empty || subtotal.compareTo(FREE_SHIPPING_THRESHOLD) >= 0) ? BigDecimal.ZERO : SHIPPING_FEE;
+    }
+
+    private static BigDecimal subtotalOf(List<CartItem> items) {
+        return items.stream()
+                .map(i -> i.getProduct().getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    CartResponse buildCart(List<CartItem> items, User user) {
         List<CartItemResponse> lines = items.stream().map(i -> {
             Product p = i.getProduct();
             BigDecimal subtotal = p.getPrice().multiply(BigDecimal.valueOf(i.getQuantity()));
             return new CartItemResponse(i.getId(), p.getId(), p.getName(), p.getImageUrl(),
-                    p.getPrice(), i.getQuantity(), p.getStock(), subtotal);
+                    p.getPrice(), p.getMrp(), i.getQuantity(), p.getStock(), subtotal);
         }).toList();
 
-        BigDecimal subtotal = lines.stream()
-                .map(CartItemResponse::subtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal shipping = (lines.isEmpty() || subtotal.compareTo(FREE_SHIPPING_THRESHOLD) >= 0)
-                ? BigDecimal.ZERO : SHIPPING_FEE;
-
+        BigDecimal subtotal = subtotalOf(items);
+        BigDecimal shipping = shippingFor(subtotal, lines.isEmpty());
         int totalItems = lines.stream().mapToInt(CartItemResponse::quantity).sum();
 
-        return new CartResponse(lines, totalItems, subtotal, shipping, subtotal.add(shipping));
+        BigDecimal discount = BigDecimal.ZERO;
+        String couponCode = user.getCartCouponCode();
+        String couponDescription = null;
+        String couponMessage = null;
+        if (couponCode != null && !lines.isEmpty()) {
+            CouponService.Evaluation evaluation = couponService.evaluate(couponCode, subtotal, user);
+            discount = evaluation.discount();
+            couponMessage = evaluation.message();
+            if (evaluation.coupon() != null) couponDescription = evaluation.coupon().getDescription();
+        }
+
+        return new CartResponse(lines, totalItems, subtotal, discount, shipping,
+                subtotal.subtract(discount).add(shipping),
+                couponCode, couponDescription, couponMessage, FREE_SHIPPING_THRESHOLD);
     }
 }

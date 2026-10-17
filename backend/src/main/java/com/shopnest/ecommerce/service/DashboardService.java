@@ -6,6 +6,8 @@ import com.shopnest.ecommerce.entity.Product;
 import com.shopnest.ecommerce.repository.OrderRepository;
 import com.shopnest.ecommerce.repository.ProductRepository;
 import com.shopnest.ecommerce.repository.UserRepository;
+import com.shopnest.ecommerce.repository.ContactMessageRepository;
+import com.shopnest.ecommerce.repository.NewsletterSubscriberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,9 @@ public class DashboardService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final ContactMessageRepository messageRepository;
+    private final NewsletterSubscriberRepository subscriberRepository;
+    private final CouponService couponService;
 
     @Transactional(readOnly = true)
     public DashboardResponse summary() {
@@ -69,7 +74,9 @@ public class DashboardService {
         return new DashboardResponse(
                 revenue, totalOrders,
                 productRepository.count(), userRepository.count(),
-                averageOrderValue, byStatus, topSellers, lowStock);
+                averageOrderValue, byStatus, topSellers, lowStock,
+                messageRepository.countByResolvedFalse(), subscriberRepository.count(),
+                couponService.offers().size());
     }
 
     private static BigDecimal toMoney(Object value) {

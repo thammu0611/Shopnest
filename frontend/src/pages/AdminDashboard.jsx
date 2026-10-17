@@ -39,6 +39,7 @@ export default function AdminDashboard() {
     <>
       <div className="page-head">
         <div>
+          <span className="eyebrow">Atelier</span>
           <h1>Dashboard</h1>
           <p className="muted">Everything happening across the store right now.</p>
         </div>
@@ -65,6 +66,24 @@ export default function AdminDashboard() {
           <span className="stat-label">Customers</span>
           <strong className="stat-value">{data.totalCustomers}</strong>
         </div>
+      </section>
+
+      <section className="stat-grid stat-grid-compact">
+        <Link to="/admin/messages" className="stat-tile card">
+          <span className="stat-label">Open messages</span>
+          <strong className="stat-value">{data.openMessages}</strong>
+          <span className="stat-note">from the contact page</span>
+        </Link>
+        <Link to="/admin/coupons" className="stat-tile card">
+          <span className="stat-label">Live coupons</span>
+          <strong className="stat-value">{data.activeCoupons}</strong>
+          <span className="stat-note">shown to shoppers</span>
+        </Link>
+        <Link to="/admin/customers" className="stat-tile card">
+          <span className="stat-label">Subscribers</span>
+          <strong className="stat-value">{data.subscribers}</strong>
+          <span className="stat-note">on the newsletter</span>
+        </Link>
       </section>
 
       <div className="dash-layout">

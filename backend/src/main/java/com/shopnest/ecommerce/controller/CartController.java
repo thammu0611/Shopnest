@@ -1,6 +1,7 @@
 package com.shopnest.ecommerce.controller;
 
 import com.shopnest.ecommerce.dto.CartDtos.*;
+import com.shopnest.ecommerce.dto.CouponDtos.ApplyCouponRequest;
 import com.shopnest.ecommerce.service.CartService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,17 @@ public class CartController {
     public ResponseEntity<CartResponse> remove(@AuthenticationPrincipal UserDetails principal,
                                                @PathVariable Long cartItemId) {
         return ResponseEntity.ok(cartService.removeItem(principal.getUsername(), cartItemId));
+    }
+
+    @PostMapping("/coupon")
+    public ResponseEntity<CartResponse> applyCoupon(@AuthenticationPrincipal UserDetails principal,
+                                                    @Valid @RequestBody ApplyCouponRequest request) {
+        return ResponseEntity.ok(cartService.applyCoupon(principal.getUsername(), request.code()));
+    }
+
+    @DeleteMapping("/coupon")
+    public ResponseEntity<CartResponse> removeCoupon(@AuthenticationPrincipal UserDetails principal) {
+        return ResponseEntity.ok(cartService.removeCoupon(principal.getUsername()));
     }
 
     @DeleteMapping

@@ -36,6 +36,10 @@ public class User {
     @Column(length = 20)
     private String phone;
 
+    /** Promo code the customer has applied to their cart, carried until checkout. */
+    @Column(name = "cart_coupon_code", length = 30)
+    private String cartCouponCode;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

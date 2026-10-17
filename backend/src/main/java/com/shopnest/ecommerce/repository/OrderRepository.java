@@ -21,6 +21,9 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
     long countByUserId(Long userId);
 
+    /** Backs "once per customer" coupons. */
+    boolean existsByUserIdAndCouponCodeIgnoreCaseAndStatusNot(Long userId, String couponCode, OrderStatus status);
+
     @Query("""
            SELECT COALESCE(SUM(o.totalAmount), 0) FROM OrderEntity o
            WHERE o.user.id = :userId AND o.status <> com.shopnest.ecommerce.entity.OrderStatus.CANCELLED
@@ -37,6 +40,25 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     boolean hasPurchased(@Param("userId") Long userId, @Param("productId") Long productId);
 
     // ---------- admin dashboard ----------
+
+    /** Each row is [productId, unitsSold] over non-cancelled orders. */
+    @Query("""
+           SELECT i.product.id, SUM(i.quantity) FROM OrderItem i
+           WHERE i.order.status <> com.shopnest.ecommerce.entity.OrderStatus.CANCELLED
+             AND i.product.id IS NOT NULL
+           GROUP BY i.product.id
+           """)
+    List<Object[]> unitsSoldByProduct();
+
+    /** Each row is [userId, orderCount, totalSpent] - spend excludes cancelled orders. */
+    @Query("""
+           SELECT o.user.id, COUNT(o),
+                  SUM(CASE WHEN o.status <> com.shopnest.ecommerce.entity.OrderStatus.CANCELLED
+                           THEN o.totalAmount ELSE 0 END)
+           FROM OrderEntity o
+           GROUP BY o.user.id
+           """)
+    List<Object[]> statsByUser();
 
     @Query("""
            SELECT COALESCE(SUM(o.totalAmount), 0) FROM OrderEntity o

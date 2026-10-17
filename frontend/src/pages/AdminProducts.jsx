@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { categoryApi, productApi } from '../api/endpoints.js'
 import { apiMessage } from '../api/client.js'
-import { formatCurrency } from '../utils/format.js'
 import Loader from '../components/Loader.jsx'
 import Alert from '../components/Alert.jsx'
+import PriceTag from '../components/PriceTag.jsx'
+import usePageTitle from '../utils/usePageTitle.js'
 
 const EMPTY = {
-  name: '', description: '', price: '', imageUrl: '',
-  stock: '', categoryId: '', active: true,
+  name: '', brand: '', description: '', price: '', mrp: '', imageUrl: '', images: '',
+  stock: '', categoryId: '', active: true, featured: false,
 }
 
 export default function AdminProducts() {
+  usePageTitle('Products')
+  const [query, setQuery] = useState('')
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [form, setForm] = useState(EMPTY)
@@ -51,11 +54,15 @@ export default function AdminProducts() {
     setError('')
     const payload = {
       name: form.name,
+      brand: form.brand || null,
       description: form.description,
       price: Number(form.price),
+      mrp: form.mrp ? Number(form.mrp) : null,
       imageUrl: form.imageUrl || null,
+      images: form.images.split('\n').map((u) => u.trim()).filter(Boolean),
       stock: Number(form.stock),
       active: form.active,
+      featured: form.featured,
       categoryId: form.categoryId ? Number(form.categoryId) : null,
     }
     try {
@@ -80,12 +87,16 @@ export default function AdminProducts() {
     setEditingId(product.id)
     setForm({
       name: product.name,
+      brand: product.brand || '',
       description: product.description || '',
       price: String(product.price),
+      mrp: product.mrp ? String(product.mrp) : '',
       imageUrl: product.imageUrl || '',
+      images: (product.images || []).join('\n'),
       stock: String(product.stock),
       categoryId: product.categoryId ? String(product.categoryId) : '',
       active: product.active,
+      featured: Boolean(product.featured),
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -103,17 +114,27 @@ export default function AdminProducts() {
 
   return (
     <div className="admin-page">
-      <h1>Product management</h1>
+      <div className="page-head">
+        <div>
+          <span className="eyebrow">Atelier</span>
+          <h1>Products</h1>
+          <p className="muted">{products.length} products · {products.filter((p) => p.active).length} live</p>
+        </div>
+      </div>
       <Alert type="error" onClose={() => setError('')}>{error}</Alert>
       <Alert type="success" onClose={() => setNotice('')}>{notice}</Alert>
 
       <form className="card admin-form" onSubmit={submit}>
         <h2>{editingId ? 'Edit product' : 'Add a product'}</h2>
 
-        <div className="form-row">
+        <div className="form-row form-row-3">
           <label>
             Name
             <input name="name" value={form.name} onChange={change} required />
+          </label>
+          <label>
+            Brand
+            <input name="brand" value={form.brand} onChange={change} maxLength={80} />
           </label>
           <label>
             Category
@@ -129,11 +150,16 @@ export default function AdminProducts() {
           <textarea name="description" rows="2" value={form.description} onChange={change} />
         </label>
 
-        <div className="form-row">
+        <div className="form-row form-row-3">
           <label>
-            Price (₹)
+            Selling price (₹)
             <input type="number" name="price" min="1" step="0.01"
                    value={form.price} onChange={change} required />
+          </label>
+          <label>
+            MRP (₹) <span className="muted small">optional</span>
+            <input type="number" name="mrp" min="1" step="0.01"
+                   value={form.mrp} onChange={change} placeholder="Shows as on sale" />
           </label>
           <label>
             Stock
@@ -147,10 +173,21 @@ export default function AdminProducts() {
                  placeholder="https://…" />
         </label>
 
-        <label className="checkbox">
-          <input type="checkbox" name="active" checked={form.active} onChange={change} />
-          Visible in the store
+        <label>
+          Gallery images <span className="muted small">one URL per line, up to 8</span>
+          <textarea name="images" rows="2" value={form.images} onChange={change} placeholder="https://…" />
         </label>
+
+        <div className="form-checks">
+          <label className="checkbox">
+            <input type="checkbox" name="active" checked={form.active} onChange={change} />
+            Visible in the store
+          </label>
+          <label className="checkbox">
+            <input type="checkbox" name="featured" checked={form.featured} onChange={change} />
+            Feature on the home page
+          </label>
+        </div>
 
         <div className="form-actions">
           <button className="btn btn-primary" disabled={busy}>
@@ -162,30 +199,46 @@ export default function AdminProducts() {
         </div>
       </form>
 
-      {loading ? <Loader label="Loading catalogue…" /> : (
+      {loading ? <Loader label="Loading catalogue…" /> : (<>
+        <input
+          className="admin-search"
+          type="search"
+          placeholder="Search products"
+          aria-label="Search products"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
         <div className="table-wrap card">
           <table>
             <thead>
               <tr>
-                <th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Visible</th><th></th>
+                <th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Sold</th><th>Status</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
+              {products.filter((p) => `${p.name} ${p.brand || ''} ${p.categoryName || ''}`
+                .toLowerCase().includes(query.trim().toLowerCase())).map((p) => (
                 <tr key={p.id}>
                   <td>
                     <div className="cell-product">
                       {p.imageUrl && <img src={p.imageUrl} alt="" />}
-                      <span>{p.name}</span>
+                      <div>
+                        <span>{p.name}</span>
+                        {p.brand && <div className="muted small">{p.brand}</div>}
+                      </div>
                     </div>
                   </td>
                   <td>{p.categoryName || '—'}</td>
-                  <td>{formatCurrency(p.price)}</td>
-                  <td>{p.stock}</td>
+                  <td><PriceTag price={p.price} mrp={p.mrp} discountPercent={p.discountPercent} size="sm" /></td>
+                  <td className={p.stock <= 5 ? 'cell-warn' : ''}>{p.stock}</td>
+                  <td>{p.soldCount}</td>
                   <td>
-                    <span className={p.active ? 'badge badge-confirmed' : 'badge badge-cancelled'}>
-                      {p.active ? 'LIVE' : 'HIDDEN'}
-                    </span>
+                    <div className="badges">
+                      <span className={p.active ? 'badge badge-confirmed' : 'badge badge-cancelled'}>
+                        {p.active ? 'LIVE' : 'HIDDEN'}
+                      </span>
+                      {p.featured && <span className="badge badge-refunded">Featured</span>}
+                    </div>
                   </td>
                   <td className="row-actions">
                     <button className="btn btn-ghost btn-sm" onClick={() => edit(p)}>Edit</button>
@@ -198,7 +251,7 @@ export default function AdminProducts() {
             </tbody>
           </table>
         </div>
-      )}
+      </>)}
     </div>
   )
 }

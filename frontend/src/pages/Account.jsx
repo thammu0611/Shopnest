@@ -1,14 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { accountApi } from '../api/endpoints.js'
+import usePageTitle from '../utils/usePageTitle.js'
+import AddressBook from '../components/AddressBook.jsx'
 import { apiMessage } from '../api/client.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { formatCurrency, formatDate } from '../utils/format.js'
 import Loader from '../components/Loader.jsx'
 import Alert from '../components/Alert.jsx'
 
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'profile', label: 'Profile' },
+  { key: 'addresses', label: 'Addresses' },
+  { key: 'security', label: 'Password' },
+]
+
 export default function Account() {
-  const { refreshUser } = useAuth()
+  usePageTitle('My account')
+  const { refreshUser, logout } = useAuth()
+  const [params, setParams] = useSearchParams()
+  const tab = TABS.some((t) => t.key === params.get('tab')) ? params.get('tab') : 'overview'
+  const setTab = (key) => setParams(key === 'overview' ? {} : { tab: key })
 
   const [account, setAccount] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -91,6 +104,7 @@ export default function Account() {
     <>
       <div className="page-head">
         <div>
+          <span className="eyebrow">Welcome back, {account.name.split(' ')[0]}</span>
           <h1>My account</h1>
           <p className="muted">
             {account.email} · member since {formatDate(account.memberSince)}
@@ -101,6 +115,16 @@ export default function Account() {
       <Alert type="error" onClose={() => setError('')}>{error}</Alert>
       <Alert type="success" onClose={() => setNotice('')}>{notice}</Alert>
 
+      <div className="tab-list account-tabs" role="tablist">
+        {TABS.map((t) => (
+          <button key={t.key} role="tab" aria-selected={tab === t.key}
+                  className={tab === t.key ? 'is-active' : ''} onClick={() => setTab(t.key)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'overview' && (<>
       <section className="stat-grid">
         <Link to="/orders" className="stat-tile card">
           <span className="stat-label">Orders placed</span>
@@ -120,7 +144,30 @@ export default function Account() {
         </div>
       </section>
 
+      <div className="account-shortcuts">
+        <Link to="/orders" className="card shortcut">
+          <strong>Orders &amp; returns</strong>
+          <span className="muted small">Track, cancel or reorder</span>
+        </Link>
+        <button className="card shortcut" onClick={() => setTab('addresses')}>
+          <strong>Address book</strong>
+          <span className="muted small">Manage delivery addresses</span>
+        </button>
+        <Link to="/wishlist" className="card shortcut">
+          <strong>Wishlist</strong>
+          <span className="muted small">Pieces you saved for later</span>
+        </Link>
+        <Link to="/contact" className="card shortcut">
+          <strong>Need help?</strong>
+          <span className="muted small">Write to client services</span>
+        </Link>
+      </div>
+      </>)}
+
+      {tab === 'addresses' && <AddressBook onNotice={flash} />}
+
       <div className="account-layout">
+        {tab === 'profile' && (
         <form className="card" onSubmit={handleProfile}>
           <h2>Profile</h2>
           <p className="muted small">Your email address is used to sign in and cannot be changed.</p>
@@ -155,7 +202,9 @@ export default function Account() {
             {savingProfile ? 'Saving…' : 'Save changes'}
           </button>
         </form>
+        )}
 
+        {tab === 'security' && (
         <form className="card" onSubmit={handlePassword}>
           <h2>Change password</h2>
           <p className="muted small">Use at least 6 characters.</p>
@@ -199,6 +248,15 @@ export default function Account() {
             {savingPassword ? 'Updating…' : 'Update password'}
           </button>
         </form>
+        )}
+
+        {tab === 'security' && (
+          <div className="card">
+            <h2>Signed in</h2>
+            <p className="muted small">You are signed in on this device as {account.email}.</p>
+            <button className="btn btn-ghost" onClick={logout}>Sign out</button>
+          </div>
+        )}
       </div>
     </>
   )

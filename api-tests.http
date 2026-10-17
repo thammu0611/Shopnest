@@ -241,3 +241,92 @@ Authorization: Bearer {{adminToken}}
 ### 36. Negative test - dashboard with a customer token (expect 403)
 GET {{host}}/admin/dashboard
 Authorization: Bearer {{token}}
+
+
+### ================= Store features =================
+
+### 37. Catalogue filters - on sale, in stock, ₹1,000-₹3,000, best selling first
+GET {{host}}/products?onSale=true&inStock=true&minPrice=1000&maxPrice=3000&sort=popular
+
+### 38. Products rated 4 stars and up from one brand
+GET {{host}}/products?minRating=4&brand=Lumen
+
+### 39. Filter-panel facets (price bounds + brands)
+GET {{host}}/products/facets
+
+### 40. "You may also like" for product 1
+GET {{host}}/products/1/related?limit=4
+
+### 41. Public list of live promo codes
+GET {{host}}/coupons/offers
+
+### 42. Apply a promo code to the cart
+POST {{host}}/cart/coupon
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "code": "WELCOME10" }
+
+### 43. Remove the promo code
+DELETE {{host}}/cart/coupon
+Authorization: Bearer {{token}}
+
+### 44. Save a delivery address
+POST {{host}}/account/addresses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "label": "Home",
+  "fullName": "Demo Customer",
+  "phone": "9000000002",
+  "line1": "12 MG Road, Flat 4B",
+  "city": "Bengaluru",
+  "state": "Karnataka",
+  "pincode": "560038",
+  "makeDefault": true
+}
+
+### 45. List saved addresses
+GET {{host}}/account/addresses
+Authorization: Bearer {{token}}
+
+### 46. Newsletter sign-up (public)
+POST {{host}}/newsletter
+Content-Type: application/json
+
+{ "email": "reader@example.com" }
+
+### 47. Contact form (public)
+POST {{host}}/contact
+Content-Type: application/json
+
+{
+  "name": "Asha Rao",
+  "email": "asha@example.com",
+  "subject": "Delivery",
+  "message": "When will my order be dispatched?"
+}
+
+### 48. Admin - create a coupon
+POST {{host}}/admin/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "DIWALI20",
+  "description": "20% off for Diwali, up to ₹1,500",
+  "discountType": "PERCENT",
+  "value": 20,
+  "minOrderAmount": 3000,
+  "maxDiscount": 1500,
+  "usageLimit": 500
+}
+
+### 49. Admin - customers with order count and spend
+GET {{host}}/admin/customers
+Authorization: Bearer {{adminToken}}
+
+### 50. Admin - contact inbox
+GET {{host}}/admin/messages
+Authorization: Bearer {{adminToken}}

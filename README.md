@@ -22,26 +22,30 @@ shopnest/
 ├── backend/          Spring Boot 3.3.5 REST API (Java 17+, Maven)
 │   └── src/main/java/com/shopnest/ecommerce/
 │       ├── config/       SecurityConfig (JWT + CORS), DataSeeder
-│       ├── controller/   Auth, Product, Category, Cart, Order, Admin
+│       ├── controller/   Auth, Product, Category, Cart, Order, Address, Support, Admin
 │       ├── dto/          Request/response records (never expose entities)
-│       ├── entity/       User, Category, Product, CartItem, Order, OrderItem
+│       ├── entity/       User, Category, Product, CartItem, Order, OrderItem, Review,
+│       │                 WishlistItem, Coupon, Address, ContactMessage, NewsletterSubscriber
 │       ├── exception/    Custom exceptions + @RestControllerAdvice
 │       ├── repository/   Spring Data JPA repositories
 │       ├── security/     JwtService, JwtAuthenticationFilter, UserDetailsService
-│       └── service/      Business logic (Auth, Product, Cart, Order)
+│       └── service/      Business logic (Auth, Product, Cart, Coupon, Order, Address, ...)
 ├── frontend/         React 18 + Vite + React Router + Axios
 │   └── src/
 │       ├── api/          Axios instance, interceptors, endpoint map
-│       ├── components/   Navbar, ProductCard, ProtectedRoute, Loader, Alert
+│       ├── components/   Navbar, Footer, SearchOverlay, ProductCard, ProductRail,
+│       │                 PriceTag, AddressBook, Newsletter, Toast, ProtectedRoute, ...
 │       ├── context/      AuthContext, CartContext
-│       ├── pages/        Home, ProductDetail, Login, Register, Cart,
-│       │                 Checkout, OrderSuccess, Orders, OrderDetail,
-│       │                 Wishlist, Account, AdminDashboard, Admin×2, NotFound
+│       ├── pages/        Home, Shop, ProductDetail, Login, Register, Cart, Checkout,
+│       │                 OrderSuccess, Orders, OrderDetail, Invoice, Wishlist, Account,
+│       │                 Contact, InfoPages (About/FAQ/Shipping/Privacy/Terms),
+│       │                 Admin: Dashboard, Products, Orders, Categories, Coupons,
+│       │                 Customers, Messages · NotFound
 │       └── styles/       Single hand-written stylesheet (no UI framework)
 ├── database/
 │   ├── schema.sql        Reference DDL (documentation / viva)
 │   └── seed-extra.sql    Optional extra demo rows
-└── api-tests.http        20 ready-to-run API calls (VS Code REST Client / IntelliJ)
+└── api-tests.http        50 ready-to-run API calls (VS Code REST Client / IntelliJ)
 ```
 
 ---
@@ -90,24 +94,38 @@ respond, starts the React dev server, and opens the browser.
 
 ### Visual design
 
-The storefront was restyled around a warm, editorial design system. All of it
-lives in `frontend/src/styles/index.css` — every class name was kept, so no
-component markup changed.
+The storefront uses a boutique, editorial design system. All of it lives in
+`frontend/src/styles/index.css`.
 
 | | |
 |---|---|
-| Palette | Warm paper (`#faf9f7`) and ink instead of blue-grey, with a terracotta accent (`#c15f3c`) |
-| Type | **Newsreader** serif for headings and product titles, **Inter** for UI text (loaded in `index.html`) |
+| Palette | Ivory paper (`#f8f5ef`) and ink, with an antique-bronze accent (`#9c7a4a`) |
+| Type | **Cormorant Garamond** for headings and product names, **Jost** for UI text (loaded in `index.html`) |
 | Dark mode | Full second palette via `prefers-color-scheme`, so it follows your OS automatically |
-| Detail | Tabular-lining numerals for prices/totals, custom select chevrons, hover lift on cards, image zoom on hover, entrance transitions, accessible focus rings |
-| Motion | All animation is disabled under `prefers-reduced-motion` |
+| Layout | Announcement bar, centred wordmark, slide-out mobile menu, sticky header, full footer |
+| Motion | Entrance transitions and image zooms, all disabled under `prefers-reduced-motion` |
 
 Everything is driven by CSS custom properties on `:root` — change `--accent`
 in one place and the whole storefront follows.
 
-Also fixed: the seeded *Stainless Steel Cookware Set* pointed at an Unsplash
-photo that now 404s, so its card rendered as a broken image. All 12 seed image
-URLs are verified reachable.
+### Store features
+
+| Area | What you get |
+|---|---|
+| Home | Hero, category tiles, "The Edit" (featured), sale banner, new arrivals, best sellers, recently viewed, newsletter sign-up |
+| Shop (`/shop`) | Filters for category, price range, brand, rating, in-stock and on-sale; sort by newest / best selling / price / name; filter chips; every filter lives in the URL; mobile filter drawer |
+| Search | Header search with live product suggestions |
+| Product page | Image gallery, MRP with % off, stock status, quantity, add to bag / buy now, wishlist, share, description / details / delivery tabs, reviews, related products, recently viewed |
+| Bag | Promo codes plus "offers available", free-delivery progress meter, save for later (moves to wishlist), savings summary |
+| Checkout | Saved-address picker, new address with "save to my account", card / UPI / COD (simulated) |
+| Orders | Progress tracker, price breakdown with discount, printable invoice, buy again, self-service cancellation |
+| Account | Overview, profile, address book (default address, edit, delete), password |
+| Pages | Our story, contact form, FAQ, shipping & returns, privacy policy, terms of sale |
+| Admin ("Atelier") | Dashboard, products (brand, MRP, featured, gallery), orders, categories, coupons, customers & subscribers, contact inbox |
+
+The policy pages describe how this app actually behaves (₹2,000 free-delivery
+threshold, cancellation before dispatch, simulated payments). Edit them to
+match your real business before going live.
 
 ### Database
 
@@ -220,14 +238,18 @@ Base URL: `http://localhost:8080/api`
 
 | Method | Endpoint | Access | Purpose |
 |---|---|---|---|
-| GET | `/products?search=&categoryId=&page=0&size=12&sort=latest` | public | Paged catalogue (`sort`: `latest`, `price_asc`, `price_desc`, `name`) |
-| GET | `/products/{id}` | public | Single product |
+| GET | `/products?search=&categoryId=&brand=&minPrice=&maxPrice=&minRating=&inStock=&onSale=&featured=&page=0&size=12&sort=latest` | public | Paged, filtered catalogue (`sort`: `latest`, `popular`, `price_asc`, `price_desc`, `name`) |
+| GET | `/products/facets` | public | Price bounds and brand list for the filter panel |
+| GET | `/products/{id}` | public | Single product, with gallery images |
+| GET | `/products/{id}/related?limit=4` | public | "You may also like" — same category first |
 | POST | `/products` | ADMIN | Create |
 | PUT | `/products/{id}` | ADMIN | Update |
 | DELETE | `/products/{id}` | ADMIN | Soft delete (`active=false`, keeps order history intact) |
 | GET | `/admin/products` | ADMIN | Catalogue including hidden products |
 | GET | `/categories` | public | List |
 | POST | `/categories` | ADMIN | Create |
+| PUT | `/categories/{id}` | ADMIN | Update name, description, tile image |
+| DELETE | `/categories/{id}` | ADMIN | Delete (only when it has no products) |
 
 ### Cart (all require a token)
 
@@ -311,6 +333,34 @@ order to `REFUNDED`. The admin route and the customer route share one
 Revenue and the average order value both exclude cancelled orders. Products at
 or below 15 units are reported as low stock.
 
+### Coupons, addresses and support
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| GET | `/coupons/offers` | public | Promo codes currently open to shoppers |
+| POST | `/cart/coupon` | logged in | Apply a code `{ "code": "WELCOME10" }` (validated against the cart) |
+| DELETE | `/cart/coupon` | logged in | Remove the applied code |
+| GET / POST | `/account/addresses` | logged in | List / save delivery addresses (max 10) |
+| PUT / DELETE | `/account/addresses/{id}` | logged in | Edit / delete an address |
+| PUT | `/account/addresses/{id}/default` | logged in | Make an address the default |
+| POST | `/newsletter` | public | Subscribe an email (idempotent) |
+| POST | `/contact` | public | Send a message to the store |
+| GET / POST | `/admin/coupons` | ADMIN | List / create coupons |
+| PUT / DELETE | `/admin/coupons/{id}` | ADMIN | Edit / delete a coupon |
+| GET | `/admin/customers` | ADMIN | Accounts with order count and spend |
+| GET | `/admin/subscribers` | ADMIN | Newsletter list |
+| GET | `/admin/messages` | ADMIN | Contact inbox |
+| PUT | `/admin/messages/{id}` | ADMIN | Mark resolved `{ "resolved": true }` |
+
+Coupon rules: `PERCENT` or `FLAT`, optional minimum order, maximum discount,
+expiry date, total usage limit and once-per-customer. The cart response shows
+the applied code and, when it does not currently qualify, the reason (for
+example "Add ₹1,500.00 more to use FLAT250"). A code that no longer qualifies
+at checkout is simply not applied. Cancelling an order gives its redemption back.
+
+Demo codes seeded on first start: `WELCOME10` (10% up to ₹500, once per
+customer), `FLAT250` (₹250 off ₹2,499+), `FESTIVE15` (15% up to ₹1,000 on ₹4,999+).
+
 ---
 
 ## 5. How the pieces fit together
@@ -388,7 +438,8 @@ in the UI instead of a generic failure.
 ## 8. Ideas if you want to extend it
 
 - Product image upload (`MultipartFile`) instead of image URLs
-- Coupon codes and promotional pricing
+- Guest checkout / a guest cart that merges into the account on sign-in
+- Real payment gateway (Razorpay / Stripe) in place of the simulated one
 - Email confirmation on checkout (`spring-boot-starter-mail`)
 - Swagger UI (`springdoc-openapi-starter-webmvc-ui`) for live API docs
 - Unit tests with JUnit 5 + Mockito, integration tests with `@SpringBootTest`

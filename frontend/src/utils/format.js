@@ -23,3 +23,11 @@ export function formatDate(value) {
 export function statusClass(status) {
   return `badge badge-${(status || '').toLowerCase()}`
 }
+
+/** Short human description of a coupon, e.g. "10% off, up to ₹500". */
+export function describeOffer(o) {
+  const amount = o.discountType === 'PERCENT' ? `${Number(o.value)}% off` : `${formatCurrency(o.value)} off`
+  const cap = o.maxDiscount ? `, up to ${formatCurrency(o.maxDiscount)}` : ''
+  const min = o.minOrderAmount ? ` on orders of ${formatCurrency(o.minOrderAmount)}+` : ''
+  return amount + cap + min
+}

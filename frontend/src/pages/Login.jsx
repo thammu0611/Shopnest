@@ -25,7 +25,7 @@ export default function Login() {
     try {
       const user = await login(form.email, form.password)
       await refresh()
-      navigate(user.role === 'ROLE_ADMIN' ? '/admin/products' : redirectTo, { replace: true })
+      navigate(user.role === 'ROLE_ADMIN' && redirectTo === '/' ? '/admin' : redirectTo, { replace: true })
     } catch (err) {
       setError(apiMessage(err, 'Invalid email or password'))
     } finally {
@@ -35,9 +35,17 @@ export default function Login() {
 
   return (
     <div className="auth-wrap">
-      <form className="card auth-card" onSubmit={submit}>
+      <aside className="auth-visual" aria-hidden="true">
+        <img src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=900&q=80" alt="" />
+        <div className="auth-visual-copy">
+          <span className="eyebrow">Members</span>
+          <p>Your wishlist, your orders and your reviews — all in one quiet place.</p>
+        </div>
+      </aside>
+      <form className="auth-card" onSubmit={submit}>
+        <span className="eyebrow">Client account</span>
         <h1>Welcome back</h1>
-        <p className="muted">Sign in to your ShopNest account.</p>
+        <p className="muted">Sign in to continue to your ShopNest account.</p>
 
         <Alert type="error" onClose={() => setError('')}>{error}</Alert>
 

@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar.jsx'
+import Footer from './components/Footer.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Home from './pages/Home.jsx'
 import ProductDetail from './pages/ProductDetail.jsx'
@@ -48,9 +49,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      <footer className="footer">
-        ShopNest — Spring Boot · React · MySQL demo storefront
-      </footer>
+      <Footer />
     </>
   )
 }

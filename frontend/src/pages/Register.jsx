@@ -42,7 +42,15 @@ export default function Register() {
 
   return (
     <div className="auth-wrap">
-      <form className="card auth-card" onSubmit={submit}>
+      <aside className="auth-visual" aria-hidden="true">
+        <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&q=80" alt="" />
+        <div className="auth-visual-copy">
+          <span className="eyebrow">Join us</span>
+          <p>Save what you love, follow every delivery and share your thoughts with the community.</p>
+        </div>
+      </aside>
+      <form className="auth-card" onSubmit={submit}>
+        <span className="eyebrow">New client</span>
         <h1>Create your account</h1>
         <p className="muted">It takes about ten seconds.</p>
 
@@ -63,17 +71,19 @@ export default function Register() {
           <input name="phone" value={form.phone} onChange={change} />
         </label>
 
-        <label>
-          Password
-          <input type="password" name="password" value={form.password}
-                 onChange={change} required minLength={6} />
-        </label>
+        <div className="form-row">
+          <label>
+            Password
+            <input type="password" name="password" value={form.password}
+                   onChange={change} required minLength={6} />
+          </label>
 
-        <label>
-          Confirm password
-          <input type="password" name="confirm" value={form.confirm}
-                 onChange={change} required minLength={6} />
-        </label>
+          <label>
+            Confirm password
+            <input type="password" name="confirm" value={form.confirm}
+                   onChange={change} required minLength={6} />
+          </label>
+        </div>
 
         <button className="btn btn-primary btn-block" disabled={busy}>
           {busy ? 'Creating…' : 'Create account'}

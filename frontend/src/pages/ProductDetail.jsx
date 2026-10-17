@@ -10,6 +10,8 @@ import WishlistButton from '../components/WishlistButton.jsx'
 import ProductReviews from '../components/ProductReviews.jsx'
 import Loader from '../components/Loader.jsx'
 import Alert from '../components/Alert.jsx'
+import Toast from '../components/Toast.jsx'
+import { BagIcon, ReturnIcon, ShieldIcon, TruckIcon } from '../components/Icons.jsx'
 
 export default function ProductDetail() {
   const { id } = useParams()
@@ -42,7 +44,7 @@ export default function ProductDetail() {
     setError('')
     try {
       await addItem(product.id, quantity)
-      setNotice('Added to your cart')
+      setNotice(`${quantity} × ${product.name} added to your bag`)
     } catch (err) {
       setError(apiMessage(err, 'Could not add that item'))
     } finally {
@@ -60,9 +62,17 @@ export default function ProductDetail() {
   if (loading) return <Loader label="Loading product…" />
   if (!product) return <Alert type="error">{error || 'Product not found'}</Alert>
 
+  const maxQty = Math.max(product.stock, 1)
+  const inStock = product.stock > 0
+
   return (
     <div className="detail">
-      <Link to="/" className="back-link">← Back to shop</Link>
+      <nav className="breadcrumb" aria-label="Breadcrumb">
+        <Link to="/">Shop</Link>
+        {product.categoryName && <><span aria-hidden="true">/</span><span>{product.categoryName}</span></>}
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{product.name}</span>
+      </nav>
 
       <div className="detail-grid">
         <div className="detail-image">
@@ -72,50 +82,67 @@ export default function ProductDetail() {
         </div>
 
         <div className="detail-body">
-          {product.categoryName && <span className="chip">{product.categoryName}</span>}
+          {product.categoryName && <span className="eyebrow">{product.categoryName}</span>}
           <h1>{product.name}</h1>
 
           <a href="#reviews" className="detail-rating">
-            <StarRating value={product.averageRating} count={product.reviewCount} size={16} showValue />
+            <StarRating value={product.averageRating} count={product.reviewCount} size={15} showValue />
           </a>
 
           <p className="detail-price">{formatCurrency(product.price)}</p>
           <p className="detail-desc">{product.description}</p>
 
-          <p className={product.stock > 0 ? 'in-stock' : 'out-stock'}>
-            {product.stock > 0 ? `In stock — ${product.stock} available` : 'Currently out of stock'}
+          <p className={`stock-line ${inStock ? (product.stock <= 5 ? 'is-low' : 'is-in') : 'is-out'}`}>
+            <span className="stock-dot" aria-hidden="true" />
+            {inStock
+              ? product.stock <= 5
+                ? `Only ${product.stock} left — order soon`
+                : 'In stock, ready to dispatch'
+              : 'Currently sold out'}
           </p>
 
           <Alert type="error" onClose={() => setError('')}>{error}</Alert>
-          <Alert type="success" onClose={() => setNotice('')}>{notice}</Alert>
 
           <div className="detail-actions">
-            <label>
-              Qty
-              <input
-                type="number"
-                min="1"
-                max={Math.max(product.stock, 1)}
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-              />
-            </label>
+            <div className="qty-control qty-lg" aria-label="Quantity">
+              <button
+                type="button"
+                aria-label="Decrease quantity"
+                disabled={quantity <= 1}
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              >−</button>
+              <span aria-live="polite">{quantity}</span>
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                disabled={quantity >= maxQty}
+                onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+              >+</button>
+            </div>
             <button
-              className="btn btn-primary"
-              disabled={product.stock <= 0 || busy}
+              className="btn btn-primary btn-lg detail-add"
+              disabled={!inStock || busy}
               onClick={handleAdd}
             >
-              {busy ? 'Adding…' : 'Add to cart'}
+              <BagIcon size={17} />
+              {busy ? 'Adding…' : inStock ? 'Add to bag' : 'Sold out'}
             </button>
-            <WishlistButton productId={product.id} className="wish-btn-inline" withLabel />
-            <Link to="/cart" className="btn btn-ghost">Go to cart</Link>
+            <WishlistButton productId={product.id} className="wish-btn-square" />
           </div>
+
+          <ul className="assurance">
+            <li><TruckIcon size={20} strokeWidth={1.2} /> Complimentary delivery on orders above ₹2,000</li>
+            <li><ShieldIcon size={20} strokeWidth={1.2} /> Secure checkout — card, UPI or cash on delivery</li>
+            <li><ReturnIcon size={20} strokeWidth={1.2} /> Cancel free of charge until your order ships</li>
+          </ul>
         </div>
       </div>
 
       <div id="reviews">
         <ProductReviews productId={product.id} onChange={handleReviewsChanged} />
       </div>
+
+      <Toast message={notice} onClose={() => setNotice('')} action={{ to: '/cart', label: 'View bag' }} />
     </div>
   )
 }

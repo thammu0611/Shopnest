@@ -52,11 +52,17 @@ export default function Checkout() {
 
   return (
     <div className="checkout-page">
-      <h1>Checkout</h1>
+      <div className="page-head">
+        <div>
+          <span className="eyebrow">Checkout · Step 2 of 2</span>
+          <h1>Delivery &amp; payment</h1>
+          <p className="muted">Almost there — tell us where your order should go.</p>
+        </div>
+      </div>
 
       <div className="checkout-layout">
         <form className="card checkout-form" onSubmit={submit}>
-          <h2>Shipping details</h2>
+          <h2 className="form-section-title"><span>01</span> Delivery details</h2>
           <Alert type="error" onClose={() => setError('')}>{error}</Alert>
 
           <label>
@@ -88,7 +94,7 @@ export default function Checkout() {
             </label>
           </div>
 
-          <h2>Payment method</h2>
+          <h2 className="form-section-title"><span>02</span> Payment method</h2>
           <div className="payment-options">
             {PAYMENT_METHODS.map((m) => (
               <label key={m.value} className="radio">
@@ -108,26 +114,31 @@ export default function Checkout() {
             cash-on-delivery stays PENDING until an admin marks it delivered.
           </p>
 
-          <button className="btn btn-primary btn-block" disabled={busy}>
+          <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
             {busy ? 'Placing order…' : `Place order · ${formatCurrency(cart.total)}`}
           </button>
         </form>
 
-        <aside className="card summary">
-          <h2>Your items</h2>
-          {cart.items.map((item) => (
-            <div className="summary-row" key={item.id}>
-              <span>{item.name} × {item.quantity}</span>
-              <span>{formatCurrency(item.subtotal)}</span>
-            </div>
-          ))}
-          <hr />
+        <aside className="summary">
+          <h2>Your bag</h2>
+          <ul className="summary-items">
+            {cart.items.map((item) => (
+              <li key={item.id}>
+                <span className="summary-thumb">
+                  {item.imageUrl && <img src={item.imageUrl} alt="" />}
+                  <span className="summary-qty">{item.quantity}</span>
+                </span>
+                <span className="summary-name">{item.name}</span>
+                <span>{formatCurrency(item.subtotal)}</span>
+              </li>
+            ))}
+          </ul>
           <div className="summary-row">
             <span>Subtotal</span><span>{formatCurrency(cart.subtotal)}</span>
           </div>
           <div className="summary-row">
-            <span>Shipping</span>
-            <span>{Number(cart.shipping) === 0 ? 'Free' : formatCurrency(cart.shipping)}</span>
+            <span>Delivery</span>
+            <span>{Number(cart.shipping) === 0 ? 'Complimentary' : formatCurrency(cart.shipping)}</span>
           </div>
           <div className="summary-row total">
             <span>Total</span><span>{formatCurrency(cart.total)}</span>

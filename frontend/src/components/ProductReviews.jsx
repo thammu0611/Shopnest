@@ -106,7 +106,7 @@ export default function ProductReviews({ productId, onChange }) {
       <div className="review-summary card">
         <div className="review-score">
           <strong>{summary.averageRating ? summary.averageRating.toFixed(1) : '—'}</strong>
-          <StarRating value={summary.averageRating ?? 0} count={null} size={17} />
+          {total > 0 && <StarRating value={summary.averageRating ?? 0} count={null} size={17} />}
           <span className="muted small">
             {total === 0 ? 'No reviews yet' : `${total} review${total === 1 ? '' : 's'}`}
           </span>

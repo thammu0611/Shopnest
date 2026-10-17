@@ -5,6 +5,7 @@ import { apiMessage } from '../api/client.js'
 import { formatCurrency, formatDate, statusClass } from '../utils/format.js'
 import Loader from '../components/Loader.jsx'
 import Alert from '../components/Alert.jsx'
+import { CheckIcon } from '../components/Icons.jsx'
 
 export default function OrderSuccess() {
   const { id } = useParams()
@@ -22,8 +23,9 @@ export default function OrderSuccess() {
 
   return (
     <div className="success-page">
-      <div className="success-badge">✓</div>
-      <h1>Order placed</h1>
+      <div className="success-badge"><CheckIcon size={30} strokeWidth={1.5} /></div>
+      <span className="eyebrow">Thank you</span>
+      <h1>Your order is confirmed</h1>
       <p className="muted">
         Order <strong>{order.orderNumber}</strong> · {formatDate(order.createdAt)}
       </p>

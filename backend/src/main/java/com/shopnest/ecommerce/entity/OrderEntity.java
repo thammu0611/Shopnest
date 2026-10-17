@@ -35,6 +35,20 @@ public class OrderEntity {
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    // Breakdown of totalAmount. Nullable so orders placed before these columns
+    // existed still load; OrderService derives them for those rows.
+    @Column(precision = 12, scale = 2)
+    private BigDecimal subtotal;
+
+    @Column(name = "discount_amount", precision = 12, scale = 2)
+    private BigDecimal discountAmount;
+
+    @Column(name = "shipping_fee", precision = 12, scale = 2)
+    private BigDecimal shippingFee;
+
+    @Column(name = "coupon_code", length = 30)
+    private String couponCode;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -63,6 +77,9 @@ public class OrderEntity {
 
     @Column(name = "shipping_city", nullable = false, length = 80)
     private String shippingCity;
+
+    @Column(name = "shipping_state", length = 80)
+    private String shippingState;
 
     @Column(name = "shipping_pincode", nullable = false, length = 12)
     private String shippingPincode;

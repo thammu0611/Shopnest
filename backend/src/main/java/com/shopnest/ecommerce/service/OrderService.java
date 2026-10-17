@@ -26,6 +26,7 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final CouponService couponService;
 
     /**
      * Turns the signed-in user's cart into an order:
@@ -55,6 +56,8 @@ public class OrderService {
                 .shippingPhone(request.shippingPhone().trim())
                 .shippingAddress(request.shippingAddress().trim())
                 .shippingCity(request.shippingCity().trim())
+                .shippingState(request.shippingState() == null || request.shippingState().isBlank()
+                        ? null : request.shippingState().trim())
                 .shippingPincode(request.shippingPincode().trim())
                 .totalAmount(BigDecimal.ZERO)
                 .build();
@@ -73,6 +76,7 @@ public class OrderService {
             }
 
             product.setStock(product.getStock() - cartItem.getQuantity());
+            product.setSoldCount(soldCount(product) + cartItem.getQuantity());
             productRepository.save(product);
 
             OrderItem line = OrderItem.builder()
@@ -87,10 +91,26 @@ public class OrderService {
             subtotal = subtotal.add(line.getSubtotal());
         }
 
-        BigDecimal shipping = subtotal.compareTo(CartService.FREE_SHIPPING_THRESHOLD) >= 0
-                ? BigDecimal.ZERO : CartService.SHIPPING_FEE;
+        BigDecimal shipping = CartService.shippingFor(subtotal, false);
 
-        order.setTotalAmount(subtotal.add(shipping));
+        // A code that no longer qualifies is dropped rather than failing the
+        // order: the cart summary already showed the shopper a zero discount.
+        BigDecimal discount = BigDecimal.ZERO;
+        if (user.getCartCouponCode() != null) {
+            CouponService.Evaluation evaluation = couponService.evaluate(user.getCartCouponCode(), subtotal, user);
+            if (evaluation.valid()) {
+                discount = evaluation.discount();
+                order.setCouponCode(evaluation.coupon().getCode());
+                couponService.recordRedemption(evaluation.coupon());
+            }
+            user.setCartCouponCode(null);
+            userRepository.save(user);
+        }
+
+        order.setSubtotal(subtotal);
+        order.setDiscountAmount(discount);
+        order.setShippingFee(shipping);
+        order.setTotalAmount(subtotal.subtract(discount).add(shipping));
 
         // ---- simulated payment gateway ----
         if ("COD".equals(method)) {
@@ -188,13 +208,19 @@ public class OrderService {
             Product product = line.getProduct();
             if (product == null) continue;          // product was hard-deleted
             product.setStock(product.getStock() + line.getQuantity());
+            product.setSoldCount(Math.max(0, soldCount(product) - line.getQuantity()));
             productRepository.save(product);
         }
+        couponService.releaseRedemption(order.getCouponCode());
 
         order.setStatus(OrderStatus.CANCELLED);
         if (order.getPaymentStatus() == PaymentStatus.PAID) {
             order.setPaymentStatus(PaymentStatus.REFUNDED);
         }
+    }
+
+    private static int soldCount(Product product) {
+        return product.getSoldCount() == null ? 0 : product.getSoldCount();
     }
 
     private User currentUser(String email) {
@@ -216,13 +242,21 @@ public class OrderService {
                         i.getQuantity(), i.getSubtotal()))
                 .toList();
 
+        // Orders placed before the breakdown columns existed: rebuild it from the lines.
+        BigDecimal subtotal = o.getSubtotal() != null ? o.getSubtotal()
+                : items.stream().map(OrderItemResponse::subtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal discount = o.getDiscountAmount() != null ? o.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal shipping = o.getShippingFee() != null ? o.getShippingFee()
+                : o.getTotalAmount().subtract(subtotal).add(discount).max(BigDecimal.ZERO);
+
         return new OrderResponse(
                 o.getId(), o.getOrderNumber(),
                 o.getUser().getName(), o.getUser().getEmail(),
+                subtotal, discount, shipping, o.getCouponCode(),
                 o.getTotalAmount(), o.getStatus().name(), o.getPaymentStatus().name(),
                 o.getPaymentMethod(), o.getPaymentReference(),
                 o.getShippingName(), o.getShippingPhone(), o.getShippingAddress(),
-                o.getShippingCity(), o.getShippingPincode(),
+                o.getShippingCity(), o.getShippingState(), o.getShippingPincode(),
                 o.getCreatedAt(), items);
     }
 }

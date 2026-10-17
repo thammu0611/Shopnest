@@ -25,7 +25,7 @@ export default function Login() {
     try {
       const user = await login(form.email, form.password)
       await refresh()
-      navigate(user.role === 'ROLE_ADMIN' ? '/admin/products' : redirectTo, { replace: true })
+      navigate(user.role === 'ROLE_ADMIN' && redirectTo === '/' ? '/admin' : redirectTo, { replace: true })
     } catch (err) {
       setError(apiMessage(err, 'Invalid email or password'))
     } finally {

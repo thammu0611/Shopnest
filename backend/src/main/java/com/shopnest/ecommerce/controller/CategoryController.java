@@ -26,4 +26,16 @@ public class CategoryController {
     public ResponseEntity<CategoryResponse> create(@Valid @RequestBody CategoryRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createCategory(request));
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<CategoryResponse> update(@PathVariable Long id,
+                                                   @Valid @RequestBody CategoryRequest request) {
+        return ResponseEntity.ok(productService.updateCategory(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        productService.deleteCategory(id);
+        return ResponseEntity.noContent().build();
+    }
 }

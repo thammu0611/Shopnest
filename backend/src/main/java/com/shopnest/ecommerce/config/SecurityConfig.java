@@ -44,6 +44,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/coupons/offers").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/newsletter", "/api/contact").permitAll()
                     .requestMatchers("/error", "/actuator/health").permitAll()
                     // Reviews live under /api/products/{id}/reviews, so they must be
                     // matched BEFORE the admin-only product write rules below -

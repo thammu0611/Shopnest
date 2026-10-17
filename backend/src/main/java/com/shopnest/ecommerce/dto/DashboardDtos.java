@@ -30,6 +30,9 @@ public class DashboardDtos {
             /** order status name -> how many orders currently sit in it */
             Map<String, Long> ordersByStatus,
             List<TopSellerResponse> topSellers,
-            List<LowStockResponse> lowStock
+            List<LowStockResponse> lowStock,
+            long openMessages,
+            long subscribers,
+            long activeCoupons
     ) {}
 }

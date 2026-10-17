@@ -48,22 +48,37 @@ export default function OrderSuccess() {
           </div>
         ))}
 
+        <div className="summary-row">
+          <span>Subtotal</span><span>{formatCurrency(order.subtotal)}</span>
+        </div>
+        {Number(order.discount) > 0 && (
+          <div className="summary-row discount-row">
+            <span>Promo {order.couponCode}</span><span>− {formatCurrency(order.discount)}</span>
+          </div>
+        )}
+        <div className="summary-row">
+          <span>Delivery</span>
+          <span>{Number(order.shipping) > 0 ? formatCurrency(order.shipping) : 'Complimentary'}</span>
+        </div>
         <div className="summary-row total">
-          <span>Total paid</span><span>{formatCurrency(order.totalAmount)}</span>
+          <span>{order.paymentStatus === 'PAID' ? 'Total paid' : 'Total due on delivery'}</span>
+          <span>{formatCurrency(order.totalAmount)}</span>
         </div>
 
         <div className="ship-to">
           <strong>Shipping to</strong>
           <p>
             {order.shippingName} · {order.shippingPhone}<br />
-            {order.shippingAddress}, {order.shippingCity} — {order.shippingPincode}
+            {order.shippingAddress}, {order.shippingCity}
+            {order.shippingState ? `, ${order.shippingState}` : ''} — {order.shippingPincode}
           </p>
         </div>
       </div>
 
       <div className="success-actions">
-        <Link to="/orders" className="btn btn-ghost">View all orders</Link>
-        <Link to="/" className="btn btn-primary">Keep shopping</Link>
+        <Link to={`/orders/${order.id}`} className="btn btn-ghost">Track this order</Link>
+        <Link to={`/orders/${order.id}/invoice`} className="btn btn-ghost">View invoice</Link>
+        <Link to="/shop" className="btn btn-primary">Keep shopping</Link>
       </div>
     </div>
   )

@@ -106,3 +106,79 @@ export const CheckIcon = (p) => (
     <path d="m5 12.5 4.5 4.5L19 7.5" />
   </Icon>
 )
+
+export const FilterIcon = (p) => (
+  <Icon {...p}>
+    <path d="M4 6h16M7 12h10M10 18h4" />
+  </Icon>
+)
+
+export const ChevronDownIcon = (p) => (
+  <Icon {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </Icon>
+)
+
+export const TagIcon = (p) => (
+  <Icon {...p}>
+    <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7a1 1 0 0 1 .7.3l7.6 7.6a1 1 0 0 1 0 1.4l-7.7 7.7a1 1 0 0 1-1.4 0l-7.6-7.6a1 1 0 0 1-.3-.7z" />
+    <circle cx="8" cy="8" r="1.4" />
+  </Icon>
+)
+
+export const PinIcon = (p) => (
+  <Icon {...p}>
+    <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+    <circle cx="12" cy="10" r="2.3" />
+  </Icon>
+)
+
+export const ShareIcon = (p) => (
+  <Icon {...p}>
+    <circle cx="18" cy="5.5" r="2.5" />
+    <circle cx="6" cy="12" r="2.5" />
+    <circle cx="18" cy="18.5" r="2.5" />
+    <path d="m8.2 10.8 7.6-4.1M8.2 13.2l7.6 4.1" />
+  </Icon>
+)
+
+export const PlusIcon = (p) => (
+  <Icon {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+)
+
+export const MailIcon = (p) => (
+  <Icon {...p}>
+    <rect x="3.5" y="5.5" width="17" height="13" rx="1" />
+    <path d="m4 6.5 8 6 8-6" />
+  </Icon>
+)
+
+export const PhoneIcon = (p) => (
+  <Icon {...p}>
+    <path d="M6.5 3.5h3l1.5 4-2 1.3a10.5 10.5 0 0 0 6.2 6.2l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z" />
+  </Icon>
+)
+
+export const ClockIcon = (p) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </Icon>
+)
+
+export const PrinterIcon = (p) => (
+  <Icon {...p}>
+    <path d="M7 8V3.5h10V8" />
+    <rect x="3.5" y="8" width="17" height="8" rx="1" />
+    <path d="M7 13.5h10v7H7z" />
+  </Icon>
+)
+
+export const RefreshIcon = (p) => (
+  <Icon {...p}>
+    <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+    <path d="M19.5 4.5v4h-4" />
+  </Icon>
+)

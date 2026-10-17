@@ -9,6 +9,8 @@ export const authApi = {
 export const productApi = {
   list: (params) => api.get('/products', { params }),
   get: (id) => api.get(`/products/${id}`),
+  related: (id, limit = 4) => api.get(`/products/${id}/related`, { params: { limit } }),
+  facets: () => api.get('/products/facets'),
   create: (payload) => api.post('/products', payload),
   update: (id, payload) => api.put(`/products/${id}`, payload),
   remove: (id) => api.delete(`/products/${id}`),
@@ -18,6 +20,8 @@ export const productApi = {
 export const categoryApi = {
   list: () => api.get('/categories'),
   create: (payload) => api.post('/categories', payload),
+  update: (id, payload) => api.put(`/categories/${id}`, payload),
+  remove: (id) => api.delete(`/categories/${id}`),
 }
 
 export const cartApi = {
@@ -26,6 +30,8 @@ export const cartApi = {
   update: (cartItemId, quantity) => api.put(`/cart/items/${cartItemId}`, { quantity }),
   remove: (cartItemId) => api.delete(`/cart/items/${cartItemId}`),
   clear: () => api.delete('/cart'),
+  applyCoupon: (code) => api.post('/cart/coupon', { code }),
+  removeCoupon: () => api.delete('/cart/coupon'),
 }
 
 export const orderApi = {
@@ -57,6 +63,32 @@ export const accountApi = {
   get: () => api.get('/account'),
   update: (payload) => api.put('/account', payload),
   changePassword: (payload) => api.put('/account/password', payload),
+}
+
+export const addressApi = {
+  list: () => api.get('/account/addresses'),
+  create: (payload) => api.post('/account/addresses', payload),
+  update: (id, payload) => api.put(`/account/addresses/${id}`, payload),
+  makeDefault: (id) => api.put(`/account/addresses/${id}/default`),
+  remove: (id) => api.delete(`/account/addresses/${id}`),
+}
+
+export const storeApi = {
+  // Public
+  offers: () => api.get('/coupons/offers'),
+  subscribe: (email) => api.post('/newsletter', { email }),
+  contact: (payload) => api.post('/contact', payload),
+}
+
+export const adminApi = {
+  coupons: () => api.get('/admin/coupons'),
+  createCoupon: (payload) => api.post('/admin/coupons', payload),
+  updateCoupon: (id, payload) => api.put(`/admin/coupons/${id}`, payload),
+  removeCoupon: (id) => api.delete(`/admin/coupons/${id}`),
+  customers: () => api.get('/admin/customers'),
+  subscribers: () => api.get('/admin/subscribers'),
+  messages: () => api.get('/admin/messages'),
+  setMessageResolved: (id, resolved) => api.put(`/admin/messages/${id}`, { resolved }),
 }
 
 export const dashboardApi = {

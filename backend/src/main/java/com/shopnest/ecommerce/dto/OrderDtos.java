@@ -14,6 +14,7 @@ public class OrderDtos {
             String shippingPhone,
             @NotBlank @Size(max = 255) String shippingAddress,
             @NotBlank @Size(max = 80) String shippingCity,
+            @Size(max = 80) String shippingState,
             @NotBlank @Pattern(regexp = "^[0-9]{4,10}$", message = "invalid pincode")
             String shippingPincode,
             @NotBlank String paymentMethod   // CARD | UPI | COD  (all simulated)
@@ -34,6 +35,10 @@ public class OrderDtos {
             String orderNumber,
             String customerName,
             String customerEmail,
+            BigDecimal subtotal,
+            BigDecimal discount,
+            BigDecimal shipping,
+            String couponCode,
             BigDecimal totalAmount,
             String status,
             String paymentStatus,
@@ -43,6 +48,7 @@ public class OrderDtos {
             String shippingPhone,
             String shippingAddress,
             String shippingCity,
+            String shippingState,
             String shippingPincode,
             LocalDateTime createdAt,
             List<OrderItemResponse> items

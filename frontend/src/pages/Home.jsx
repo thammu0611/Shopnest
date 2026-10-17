@@ -1,21 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { categoryApi, productApi } from '../api/endpoints.js'
 import { apiMessage } from '../api/client.js'
 import { useAuth } from '../context/AuthContext.jsx'
-import { useCart } from '../context/CartContext.jsx'
-import ProductCard from '../components/ProductCard.jsx'
+import ProductRail from '../components/ProductRail.jsx'
+import Newsletter from '../components/Newsletter.jsx'
 import Loader from '../components/Loader.jsx'
 import Alert from '../components/Alert.jsx'
 import Toast from '../components/Toast.jsx'
+import useAddToCart from '../utils/useAddToCart.js'
+import usePageTitle from '../utils/usePageTitle.js'
+import { readRecentlyViewed } from '../utils/recentlyViewed.js'
 import {
-  ArrowLeftIcon, ArrowRightIcon, ReturnIcon, SearchIcon, ShieldIcon, SparkleIcon, TruckIcon,
+  ArrowRightIcon, ReturnIcon, ShieldIcon, SparkleIcon, TruckIcon,
 } from '../components/Icons.jsx'
-
-const PAGE_SIZE = 8
 
 const HERO_MAIN = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1100&q=80'
 const HERO_SIDE = 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=700&q=80'
+const SALE_IMAGE = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1100&q=80'
 
 const PROMISES = [
   { icon: TruckIcon, title: 'Complimentary delivery', text: 'On every order above ₹2,000' },
@@ -25,89 +27,40 @@ const PROMISES = [
 ]
 
 export default function Home() {
-  const [products, setProducts] = useState([])
+  usePageTitle(null)
+  const { isAuthenticated } = useAuth()
+  const cart = useAddToCart()
+
   const [categories, setCategories] = useState([])
-  const [page, setPage] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [totalItems, setTotalItems] = useState(0)
-  const [search, setSearch] = useState('')
-  const [term, setTerm] = useState('')
-  const [categoryId, setCategoryId] = useState('')
-  const [sort, setSort] = useState('latest')
+  const [featured, setFeatured] = useState([])
+  const [newest, setNewest] = useState([])
+  const [bestSellers, setBestSellers] = useState([])
+  const [onSale, setOnSale] = useState([])
+  const [recent] = useState(() => readRecentlyViewed().slice(0, 4))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [addingId, setAddingId] = useState(null)
-
-  const { isAuthenticated } = useAuth()
-  const { addItem } = useCart()
-  const navigate = useNavigate()
-  const collectionRef = useRef(null)
 
   useEffect(() => {
-    categoryApi.list().then(({ data }) => setCategories(data)).catch(() => setCategories([]))
+    const four = { page: 0, size: 4 }
+    Promise.all([
+      categoryApi.list(),
+      productApi.list({ ...four, featured: true, sort: 'popular' }),
+      productApi.list({ ...four, sort: 'latest' }),
+      productApi.list({ ...four, sort: 'popular' }),
+      productApi.list({ ...four, onSale: true, sort: 'popular' }),
+    ])
+      .then(([c, f, n, b, s]) => {
+        setCategories(c.data)
+        setFeatured(f.data.content)
+        setNewest(n.data.content)
+        setBestSellers(b.data.content)
+        setOnSale(s.data.content)
+      })
+      .catch((err) => setError(apiMessage(err, 'Could not load the store. Is the API running on port 8080?')))
+      .finally(() => setLoading(false))
   }, [])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const { data } = await productApi.list({
-        page,
-        size: PAGE_SIZE,
-        sort,
-        search: term || undefined,
-        categoryId: categoryId || undefined,
-      })
-      setProducts(data.content)
-      setTotalPages(data.totalPages)
-      setTotalItems(data.totalElements ?? data.content.length)
-    } catch (err) {
-      setError(apiMessage(err, 'Could not load products. Is the API running on port 8080?'))
-    } finally {
-      setLoading(false)
-    }
-  }, [page, term, categoryId, sort])
-
-  useEffect(() => { load() }, [load])
-
-  const scrollToCollection = () =>
-    collectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
-  const handleSearch = (e) => {
-    e.preventDefault()
-    setPage(0)
-    setTerm(search.trim())
-  }
-
-  const pickCategory = (id) => {
-    setCategoryId(id)
-    setPage(0)
-  }
-
-  const goToPage = (next) => {
-    setPage(next)
-    scrollToCollection()
-  }
-
-  const handleAdd = async (product) => {
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: '/' } })
-      return
-    }
-    setAddingId(product.id)
-    setError('')
-    try {
-      await addItem(product.id, 1)
-      setNotice(`${product.name} has been added to your bag`)
-    } catch (err) {
-      setError(apiMessage(err, 'Could not add that item'))
-    } finally {
-      setAddingId(null)
-    }
-  }
-
-  const activeCategory = categories.find((c) => String(c.id) === String(categoryId))
+  const bestDiscount = Math.max(0, ...onSale.map((p) => p.discountPercent || 0))
 
   return (
     <>
@@ -122,14 +75,10 @@ export default function Home() {
             and chosen with care, from everyday tech to the books on your nightstand.
           </p>
           <div className="hero-actions">
-            <button type="button" className="btn btn-primary btn-lg" onClick={scrollToCollection}>
+            <Link to="/shop" className="btn btn-primary btn-lg">
               Explore the collection <ArrowRightIcon size={16} />
-            </button>
-            {isAuthenticated ? (
-              <Link to="/wishlist" className="btn btn-link">View your wishlist</Link>
-            ) : (
-              <Link to="/register" className="btn btn-link">Become a member</Link>
-            )}
+            </Link>
+            <Link to="/shop?sale=1" className="btn btn-link">Shop the sale</Link>
           </div>
         </div>
 
@@ -159,136 +108,90 @@ export default function Home() {
         ))}
       </section>
 
-      <section className="collection" ref={collectionRef} id="collection">
-        <header className="section-title">
-          <span className="eyebrow">Curated for you</span>
-          <h2>{activeCategory ? activeCategory.name : 'The Collection'}</h2>
-          <p className="muted">
-            {activeCategory?.description || 'Every piece, hand-picked. Browse by category or search for something specific.'}
-          </p>
-        </header>
+      <Alert type="error" onClose={() => setError('')}>{error}</Alert>
+      <Alert type="error" onClose={() => cart.setError('')}>{cart.error}</Alert>
 
-        <div className="category-pills" role="tablist" aria-label="Categories">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={categoryId === ''}
-            className={`pill ${categoryId === '' ? 'is-active' : ''}`}
-            onClick={() => pickCategory('')}
-          >
-            All
-          </button>
-          {categories.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="tab"
-              aria-selected={String(categoryId) === String(c.id)}
-              className={`pill ${String(categoryId) === String(c.id) ? 'is-active' : ''}`}
-              onClick={() => pickCategory(String(c.id))}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
+      {loading ? (
+        <Loader label="Curating the collection…" />
+      ) : (
+        <>
+          {categories.length > 0 && (
+            <section className="category-section">
+              <header className="section-title">
+                <span className="eyebrow">Browse</span>
+                <h2>Shop by category</h2>
+              </header>
+              <div className="category-tiles">
+                {categories.map((c) => (
+                  <Link key={c.id} to={`/shop?category=${c.id}`} className="category-tile">
+                    {c.imageUrl ? <img src={c.imageUrl} alt="" loading="lazy" /> : <span className="tile-fallback" />}
+                    <span className="category-tile-copy">
+                      <strong>{c.name}</strong>
+                      <span>{c.productCount} {c.productCount === 1 ? 'piece' : 'pieces'}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
-        <div className="toolbar">
-          <form className="search-form" onSubmit={handleSearch} role="search">
-            <SearchIcon size={18} className="search-icon" />
-            <input
-              type="search"
-              placeholder="Search the collection"
-              aria-label="Search products"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <button className="btn btn-ghost btn-sm" type="submit">Search</button>
-          </form>
+          <ProductRail
+            eyebrow="Hand-picked"
+            title="The Edit"
+            products={featured}
+            link={{ to: '/shop', label: 'View all' }}
+            onAdd={cart.add}
+            busyId={cart.addingId}
+          />
 
-          <div className="toolbar-meta">
-            {!loading && (
-              <span className="result-count">
-                {totalItems} {totalItems === 1 ? 'piece' : 'pieces'}
-                {term && <> for “{term}”</>}
-              </span>
-            )}
-            <label className="sort-select">
-              <span>Sort</span>
-              <select value={sort} onChange={(e) => { setSort(e.target.value); setPage(0) }}>
-                <option value="latest">Newest arrivals</option>
-                <option value="price_asc">Price: low to high</option>
-                <option value="price_desc">Price: high to low</option>
-                <option value="name">Name A–Z</option>
-              </select>
-            </label>
-          </div>
-        </div>
+          {onSale.length > 0 && (
+            <section className="sale-banner">
+              <div className="sale-banner-media">
+                <img src={SALE_IMAGE} alt="" loading="lazy" />
+              </div>
+              <div className="sale-banner-copy">
+                <span className="eyebrow">Limited time</span>
+                <h2>The Season Sale — up to {bestDiscount}% off.</h2>
+                <p>Considered pieces at quieter prices. Stock is limited and once it is gone, it is gone.</p>
+                <Link to="/shop?sale=1" className="btn btn-light btn-lg">Shop the sale</Link>
+              </div>
+            </section>
+          )}
 
-        <Alert type="error" onClose={() => setError('')}>{error}</Alert>
+          <ProductRail
+            eyebrow="Just landed"
+            title="New arrivals"
+            products={newest}
+            link={{ to: '/shop?sort=latest', label: 'See everything new' }}
+            onAdd={cart.add}
+            busyId={cart.addingId}
+          />
 
-        {loading ? (
-          <Loader label="Curating the collection…" />
-        ) : products.length === 0 ? (
-          <div className="empty-state">
-            <h3>Nothing quite matches</h3>
-            <p className="muted">Try a different search term or browse all categories.</p>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => { setSearch(''); setTerm(''); pickCategory('') }}
-            >
-              Clear filters
-            </button>
-          </div>
-        ) : (
-          <div className="product-grid">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAdd={handleAdd}
-                busy={addingId === product.id}
-              />
-            ))}
-          </div>
-        )}
+          <ProductRail
+            eyebrow="Most loved"
+            title="Best sellers"
+            products={bestSellers.some((p) => p.soldCount > 0) ? bestSellers : []}
+            link={{ to: '/shop?sort=popular', label: 'Shop best sellers' }}
+            onAdd={cart.add}
+            busyId={cart.addingId}
+          />
 
-        {totalPages > 1 && (
-          <nav className="pagination" aria-label="Pagination">
-            <button
-              className="icon-btn icon-btn-outline"
-              disabled={page === 0}
-              onClick={() => goToPage(page - 1)}
-              aria-label="Previous page"
-            >
-              <ArrowLeftIcon size={18} />
-            </button>
-            <span>
-              <strong>{String(page + 1).padStart(2, '0')}</strong>
-              <span className="muted"> / {String(totalPages).padStart(2, '0')}</span>
-            </span>
-            <button
-              className="icon-btn icon-btn-outline"
-              disabled={page >= totalPages - 1}
-              onClick={() => goToPage(page + 1)}
-              aria-label="Next page"
-            >
-              <ArrowRightIcon size={18} />
-            </button>
-          </nav>
-        )}
-      </section>
+          <ProductRail eyebrow="Pick up where you left off" title="Recently viewed" products={recent} />
+        </>
+      )}
+
+      <Newsletter />
 
       {!isAuthenticated && (
         <section className="member-banner">
           <span className="eyebrow">ShopNest membership</span>
           <h2>Save the pieces you love. Return when you are ready.</h2>
-          <p>Members keep a personal wishlist, track every order and leave reviews for the community.</p>
+          <p>Members keep a personal wishlist, save delivery addresses, track every order and unlock welcome offers.</p>
           <Link to="/register" className="btn btn-light btn-lg">Join ShopNest</Link>
         </section>
       )}
 
-      <Toast message={notice} onClose={() => setNotice('')} action={{ to: '/cart', label: 'View bag' }} />
+      <Toast message={cart.notice} onClose={() => cart.setNotice('')} action={{ to: '/cart', label: 'View bag' }} />
     </>
   )
 }

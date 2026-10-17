@@ -3,7 +3,8 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
 import { useWishlist } from '../context/WishlistContext.jsx'
-import { BagIcon, CloseIcon, HeartIcon, MenuIcon, UserIcon } from './Icons.jsx'
+import SearchOverlay from './SearchOverlay.jsx'
+import { BagIcon, CloseIcon, HeartIcon, MenuIcon, SearchIcon, UserIcon } from './Icons.jsx'
 
 export default function Navbar() {
   const { isAuthenticated, isAdmin, user, logout } = useAuth()
@@ -12,9 +13,17 @@ export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   // Close the mobile drawer whenever the route changes.
-  useEffect(() => { setMenuOpen(false) }, [location.pathname])
+  useEffect(() => { setMenuOpen(false) }, [location.pathname, location.search])
+
+  // /shop carries several "pages" in its query string, so NavLink's own
+  // path matching cannot tell Sale from Shop.
+  const onShop = location.pathname === '/shop'
+  const query = new URLSearchParams(location.search)
+  const shopTab = !onShop ? null : query.get('sale') === '1' ? 'sale' : query.get('sort') === 'latest' && [...query.keys()].length === 1 ? 'new' : 'shop'
+  const tabClass = (tab) => (shopTab === tab ? 'active' : '')
 
   const handleLogout = () => {
     logout()
@@ -45,13 +54,18 @@ export default function Navbar() {
           </button>
 
           <nav id="primary-nav" className={`nav-links ${menuOpen ? 'is-open' : ''}`}>
-            <NavLink to="/" end>Shop</NavLink>
-            {isAuthenticated && <NavLink to="/orders">Orders</NavLink>}
-            {isAuthenticated && <NavLink to="/account">Account</NavLink>}
+            <Link to="/shop" className={tabClass('shop')}>Shop</Link>
+            <Link to="/shop?sort=latest" className={tabClass('new')}>New in</Link>
+            <Link to="/shop?sale=1" className={tabClass('sale')}>Sale</Link>
+            <NavLink to="/about">Our story</NavLink>
+            {isAuthenticated && <NavLink to="/orders" className="nav-only-mobile">Orders</NavLink>}
+            {isAuthenticated && <NavLink to="/account" className="nav-only-mobile">Account</NavLink>}
             {isAuthenticated && <NavLink to="/wishlist" className="nav-only-mobile">Wishlist</NavLink>}
+            <NavLink to="/contact" className="nav-only-mobile">Contact us</NavLink>
             {isAdmin && <NavLink to="/admin" end className="nav-only-mobile">Dashboard</NavLink>}
             {isAdmin && <NavLink to="/admin/products" className="nav-only-mobile">Products</NavLink>}
             {isAdmin && <NavLink to="/admin/orders" className="nav-only-mobile">Manage orders</NavLink>}
+            {isAdmin && <NavLink to="/admin/coupons" className="nav-only-mobile">Coupons</NavLink>}
             {isAuthenticated ? (
               <button type="button" className="nav-only-mobile nav-signout" onClick={handleLogout}>
                 Sign out
@@ -70,13 +84,16 @@ export default function Navbar() {
           </Link>
 
           <div className="nav-actions">
+            <button type="button" className="icon-btn" onClick={() => setSearchOpen(true)} aria-label="Search">
+              <SearchIcon />
+            </button>
             {isAuthenticated ? (
               <>
                 <Link to="/account" className="nav-user" title="Your account">
                   <UserIcon />
                   <span className="nav-user-name">{user.name.split(' ')[0]}</span>
                 </Link>
-                <button className="nav-text-btn hide-sm" onClick={handleLogout}>Sign out</button>
+                <button className="nav-text-btn hide-md" onClick={handleLogout}>Sign out</button>
               </>
             ) : (
               <>
@@ -105,11 +122,16 @@ export default function Navbar() {
             <NavLink to="/admin" end>Dashboard</NavLink>
             <NavLink to="/admin/products">Products</NavLink>
             <NavLink to="/admin/orders">Orders</NavLink>
+            <NavLink to="/admin/categories">Categories</NavLink>
+            <NavLink to="/admin/coupons">Coupons</NavLink>
+            <NavLink to="/admin/customers">Customers</NavLink>
+            <NavLink to="/admin/messages">Inbox</NavLink>
           </div>
         )}
       </header>
 
       {menuOpen && <div className="nav-scrim" onClick={() => setMenuOpen(false)} aria-hidden="true" />}
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   )
 }

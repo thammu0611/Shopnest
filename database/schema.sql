@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
     password    VARCHAR(255) NOT NULL,          -- BCrypt hash
     role        VARCHAR(20)  NOT NULL DEFAULT 'ROLE_USER',
     phone       VARCHAR(20)           DEFAULT NULL,
+    cart_coupon_code VARCHAR(30)      DEFAULT NULL, -- promo code applied to the cart until checkout
     created_at  DATETIME(6)           DEFAULT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_users_email (email)
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS categories (
     id          BIGINT      NOT NULL AUTO_INCREMENT,
     name        VARCHAR(80) NOT NULL,
     description VARCHAR(255)         DEFAULT NULL,
+    image_url   VARCHAR(500)         DEFAULT NULL,   -- home page category tile
     PRIMARY KEY (id),
     UNIQUE KEY uk_categories_name (name)
 ) ENGINE=InnoDB;
@@ -49,9 +51,13 @@ CREATE TABLE IF NOT EXISTS products (
     name        VARCHAR(150)   NOT NULL,
     description VARCHAR(2000)           DEFAULT NULL,
     price       DECIMAL(12,2)  NOT NULL,
+    mrp         DECIMAL(12,2)           DEFAULT NULL,   -- list price; above price = on sale
+    brand       VARCHAR(80)             DEFAULT NULL,
     image_url   VARCHAR(500)            DEFAULT NULL,
     stock       INT            NOT NULL DEFAULT 0,
     active      BIT(1)         NOT NULL DEFAULT b'1',
+    featured    BIT(1)                  DEFAULT b'0',   -- shown in "The Edit" on the home page
+    sold_count  INT                     DEFAULT 0,      -- backs the "best selling" sort
     category_id BIGINT                  DEFAULT NULL,
     created_at  DATETIME(6)             DEFAULT NULL,
     PRIMARY KEY (id),
@@ -81,7 +87,11 @@ CREATE TABLE IF NOT EXISTS orders (
     id                BIGINT        NOT NULL AUTO_INCREMENT,
     order_number      VARCHAR(40)   NOT NULL,
     user_id           BIGINT        NOT NULL,
-    total_amount      DECIMAL(12,2) NOT NULL,
+    subtotal          DECIMAL(12,2)          DEFAULT NULL,
+    discount_amount   DECIMAL(12,2)          DEFAULT NULL,
+    shipping_fee      DECIMAL(12,2)          DEFAULT NULL,
+    coupon_code       VARCHAR(30)            DEFAULT NULL,
+    total_amount      DECIMAL(12,2) NOT NULL,   -- subtotal - discount + shipping
     status            VARCHAR(20)   NOT NULL,   -- PLACED/CONFIRMED/SHIPPED/DELIVERED/CANCELLED
     payment_status    VARCHAR(20)   NOT NULL,   -- PENDING/PAID/FAILED/REFUNDED
     payment_method    VARCHAR(40)            DEFAULT NULL,
@@ -90,6 +100,7 @@ CREATE TABLE IF NOT EXISTS orders (
     shipping_phone    VARCHAR(20)   NOT NULL,
     shipping_address  VARCHAR(255)  NOT NULL,
     shipping_city     VARCHAR(80)   NOT NULL,
+    shipping_state    VARCHAR(80)            DEFAULT NULL,
     shipping_pincode  VARCHAR(12)   NOT NULL,
     created_at        DATETIME(6)            DEFAULT NULL,
     PRIMARY KEY (id),
@@ -113,6 +124,81 @@ CREATE TABLE IF NOT EXISTS order_items (
     KEY idx_orderitem_order (order_id),
     CONSTRAINT fk_orderitem_order   FOREIGN KEY (order_id)   REFERENCES orders (id),
     CONSTRAINT fk_orderitem_product FOREIGN KEY (product_id) REFERENCES products (id)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------------
+-- 7. product_images  (gallery shots after the main image)
+-- ----------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS product_images (
+    product_id BIGINT       NOT NULL,
+    position   INT          NOT NULL,
+    url        VARCHAR(500)          DEFAULT NULL,
+    PRIMARY KEY (product_id, position),
+    CONSTRAINT fk_product_images_product FOREIGN KEY (product_id) REFERENCES products (id)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------------
+-- 8. coupons  (promo codes)
+-- ----------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS coupons (
+    id                BIGINT        NOT NULL AUTO_INCREMENT,
+    code              VARCHAR(30)   NOT NULL,   -- stored upper-case
+    description       VARCHAR(200)           DEFAULT NULL,
+    discount_type     VARCHAR(10)   NOT NULL,   -- PERCENT / FLAT
+    discount_value    DECIMAL(12,2) NOT NULL,
+    min_order_amount  DECIMAL(12,2)          DEFAULT NULL,
+    max_discount      DECIMAL(12,2)          DEFAULT NULL,   -- cap for PERCENT codes
+    expires_at        DATETIME(6)            DEFAULT NULL,
+    usage_limit       INT                    DEFAULT NULL,   -- NULL = unlimited
+    used_count        INT           NOT NULL DEFAULT 0,
+    once_per_customer BIT(1)        NOT NULL DEFAULT b'0',
+    active            BIT(1)        NOT NULL DEFAULT b'1',
+    created_at        DATETIME(6)            DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_coupons_code (code)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------------
+-- 9. addresses  (customer address book)
+-- ----------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS addresses (
+    id         BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id    BIGINT       NOT NULL,
+    label      VARCHAR(30)  NOT NULL,
+    full_name  VARCHAR(100) NOT NULL,
+    phone      VARCHAR(20)  NOT NULL,
+    line1      VARCHAR(200) NOT NULL,
+    line2      VARCHAR(200)          DEFAULT NULL,
+    city       VARCHAR(80)  NOT NULL,
+    state      VARCHAR(80)  NOT NULL,
+    pincode    VARCHAR(12)  NOT NULL,
+    is_default BIT(1)       NOT NULL DEFAULT b'0',
+    created_at DATETIME(6)           DEFAULT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_address_user FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------------
+-- 10. newsletter_subscribers / 11. contact_messages
+-- ----------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id         BIGINT       NOT NULL AUTO_INCREMENT,
+    email      VARCHAR(150) NOT NULL,
+    created_at DATETIME(6)           DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_newsletter_email (email)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS contact_messages (
+    id           BIGINT        NOT NULL AUTO_INCREMENT,
+    name         VARCHAR(100)  NOT NULL,
+    email        VARCHAR(150)  NOT NULL,
+    subject      VARCHAR(150)  NOT NULL,
+    message      VARCHAR(2000) NOT NULL,
+    order_number VARCHAR(40)            DEFAULT NULL,
+    resolved     BIT(1)        NOT NULL DEFAULT b'0',
+    created_at   DATETIME(6)            DEFAULT NULL,
+    PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
 -- ----------------------------------------------------------------

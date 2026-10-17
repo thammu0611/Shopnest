@@ -1,32 +1,61 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useCart } from '../context/CartContext.jsx'
+import { storeApi, wishlistApi } from '../api/endpoints.js'
 import { apiMessage } from '../api/client.js'
-import { formatCurrency } from '../utils/format.js'
+import { useCart } from '../context/CartContext.jsx'
+import { useWishlist } from '../context/WishlistContext.jsx'
+import { describeOffer, formatCurrency } from '../utils/format.js'
+import usePageTitle from '../utils/usePageTitle.js'
 import Alert from '../components/Alert.jsx'
 import Loader from '../components/Loader.jsx'
-import { ArrowLeftIcon, ArrowRightIcon, BagIcon, ShieldIcon } from '../components/Icons.jsx'
-
-// Mirrors CartService.FREE_SHIPPING_THRESHOLD on the backend.
-const FREE_SHIPPING_THRESHOLD = 2000
+import Toast from '../components/Toast.jsx'
+import PriceTag from '../components/PriceTag.jsx'
+import { ArrowLeftIcon, ArrowRightIcon, BagIcon, CloseIcon, ShieldIcon, TagIcon } from '../components/Icons.jsx'
 
 export default function Cart() {
-  const { cart, loading, updateItem, removeItem, clearCart } = useCart()
+  usePageTitle('Shopping bag')
+  const { cart, loading, updateItem, removeItem, clearCart, applyCoupon, removeCoupon } = useCart()
+  const { refresh: refreshWishlist } = useWishlist()
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busyId, setBusyId] = useState(null)
+  const [code, setCode] = useState('')
+  const [offers, setOffers] = useState([])
   const navigate = useNavigate()
 
-  const guard = async (id, action) => {
+  useEffect(() => {
+    storeApi.offers().then(({ data }) => setOffers(data)).catch(() => setOffers([]))
+  }, [])
+
+  const guard = async (id, action, success) => {
     setBusyId(id)
     setError('')
     try {
       await action()
+      if (success) setNotice(success)
+      return true
     } catch (err) {
-      setError(apiMessage(err, 'Could not update your cart'))
+      setError(apiMessage(err, 'Could not update your bag'))
+      return false
     } finally {
       setBusyId(null)
     }
   }
+
+  const handleApply = async (e, value = code) => {
+    e?.preventDefault()
+    if (!value.trim()) return
+    const ok = await guard('coupon', () => applyCoupon(value.trim()), `${value.trim().toUpperCase()} applied`)
+    if (ok) setCode('')
+  }
+
+  /** "Save for later": into the wishlist, out of the bag. */
+  const saveForLater = (item) =>
+    guard(item.id, async () => {
+      await wishlistApi.add(item.productId)
+      await removeItem(item.id)
+      await refreshWishlist()
+    }, `${item.name} saved to your wishlist`)
 
   if (loading && cart.items.length === 0) return <Loader label="Loading your bag…" />
 
@@ -36,13 +65,23 @@ export default function Cart() {
         <span className="empty-icon"><BagIcon size={40} strokeWidth={1} /></span>
         <h1>Your bag is empty</h1>
         <p className="muted">Discover the collection and add the pieces you love.</p>
-        <Link to="/" className="btn btn-primary btn-lg">Explore the collection</Link>
+        <div className="form-actions" style={{ justifyContent: 'center' }}>
+          <Link to="/shop" className="btn btn-primary btn-lg">Explore the collection</Link>
+          <Link to="/wishlist" className="btn btn-ghost btn-lg">View wishlist</Link>
+        </div>
       </div>
     )
   }
 
-  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - Number(cart.subtotal))
-  const progress = Math.min(100, (Number(cart.subtotal) / FREE_SHIPPING_THRESHOLD) * 100)
+  const threshold = Number(cart.freeShippingThreshold || 2000)
+  const remaining = Math.max(0, threshold - Number(cart.subtotal))
+  const progress = Math.min(100, (Number(cart.subtotal) / threshold) * 100)
+  const mrpSavings = cart.items.reduce(
+    (sum, i) => sum + (i.mrp && Number(i.mrp) > Number(i.price) ? (Number(i.mrp) - Number(i.price)) * i.quantity : 0),
+    0
+  )
+  const totalSavings = mrpSavings + Number(cart.discount || 0)
+  const unusedOffers = offers.filter((o) => o.code !== cart.couponCode)
 
   return (
     <div className="cart-page">
@@ -67,12 +106,22 @@ export default function Cart() {
 
               <div className="cart-info">
                 <Link to={`/products/${item.productId}`} className="cart-name">{item.name}</Link>
-                <span className="muted small">{formatCurrency(item.price)} each · {item.stock} in stock</span>
-                <button
-                  className="link-btn link-quiet"
-                  disabled={busyId === item.id}
-                  onClick={() => guard(item.id, () => removeItem(item.id))}
-                >Remove</button>
+                <PriceTag price={item.price} mrp={item.mrp} size="sm" />
+                <span className="muted small">
+                  {item.stock <= 5 ? `Only ${item.stock} left` : 'In stock'}
+                </span>
+                <div className="cart-line-actions">
+                  <button
+                    className="link-btn link-quiet"
+                    disabled={busyId === item.id}
+                    onClick={() => saveForLater(item)}
+                  >Save for later</button>
+                  <button
+                    className="link-btn link-quiet"
+                    disabled={busyId === item.id}
+                    onClick={() => guard(item.id, () => removeItem(item.id))}
+                  >Remove</button>
+                </div>
               </div>
 
               <div className="qty-control">
@@ -94,7 +143,7 @@ export default function Cart() {
           ))}
 
           <div className="cart-foot">
-            <Link to="/" className="btn btn-link"><ArrowLeftIcon size={16} /> Continue shopping</Link>
+            <Link to="/shop" className="btn btn-link"><ArrowLeftIcon size={16} /> Continue shopping</Link>
             <button className="link-btn link-quiet" onClick={() => guard('all', clearCart)}>
               Empty bag
             </button>
@@ -115,10 +164,70 @@ export default function Cart() {
             </div>
           </div>
 
+          <div className="coupon-box">
+            {cart.couponCode ? (
+              <div className={`coupon-applied ${cart.couponMessage ? 'is-pending' : ''}`}>
+                <TagIcon size={18} />
+                <div>
+                  <strong>{cart.couponCode}</strong>
+                  <span className="small">
+                    {cart.couponMessage || cart.couponDescription || 'Applied to your order'}
+                  </span>
+                </div>
+                <button
+                  className="icon-btn"
+                  aria-label="Remove code"
+                  disabled={busyId === 'coupon'}
+                  onClick={() => guard('coupon', removeCoupon, 'Code removed')}
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+            ) : (
+              <form className="coupon-form" onSubmit={handleApply}>
+                <input
+                  placeholder="Promo code"
+                  aria-label="Promo code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  maxLength={30}
+                />
+                <button className="btn btn-ghost btn-sm" disabled={busyId === 'coupon' || !code.trim()}>Apply</button>
+              </form>
+            )}
+
+            {unusedOffers.length > 0 && (
+              <details className="offers">
+                <summary>{unusedOffers.length} offer{unusedOffers.length === 1 ? '' : 's'} available</summary>
+                <ul>
+                  {unusedOffers.map((o) => (
+                    <li key={o.code}>
+                      <div>
+                        <strong>{o.code}</strong>
+                        <span className="small muted">{o.description || describeOffer(o)}</span>
+                      </div>
+                      <button
+                        className="link-btn"
+                        disabled={busyId === 'coupon'}
+                        onClick={(e) => handleApply(e, o.code)}
+                      >Apply</button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+
           <div className="summary-row">
             <span>Subtotal ({cart.totalItems})</span>
             <span>{formatCurrency(cart.subtotal)}</span>
           </div>
+          {Number(cart.discount) > 0 && (
+            <div className="summary-row discount-row">
+              <span>Promo {cart.couponCode}</span>
+              <span>− {formatCurrency(cart.discount)}</span>
+            </div>
+          )}
           <div className="summary-row">
             <span>Delivery</span>
             <span>{Number(cart.shipping) === 0 ? 'Complimentary' : formatCurrency(cart.shipping)}</span>
@@ -127,6 +236,9 @@ export default function Cart() {
             <span>Total</span>
             <span>{formatCurrency(cart.total)}</span>
           </div>
+          {totalSavings > 0 && (
+            <p className="savings-note">You are saving {formatCurrency(totalSavings)} on this order</p>
+          )}
           <button className="btn btn-primary btn-lg btn-block" onClick={() => navigate('/checkout')}>
             Proceed to checkout <ArrowRightIcon size={16} />
           </button>
@@ -135,6 +247,8 @@ export default function Cart() {
           </p>
         </aside>
       </div>
+
+      <Toast message={notice} onClose={() => setNotice('')} />
     </div>
   )
 }

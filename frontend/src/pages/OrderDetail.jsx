@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { orderApi } from '../api/endpoints.js'
+import { useCart } from '../context/CartContext.jsx'
+import usePageTitle from '../utils/usePageTitle.js'
+import { PrinterIcon, RefreshIcon } from '../components/Icons.jsx'
 import { apiMessage } from '../api/client.js'
 import { formatCurrency, formatDate, statusClass } from '../utils/format.js'
 import Loader from '../components/Loader.jsx'
@@ -18,6 +21,10 @@ export default function OrderDetail() {
   const [notice, setNotice] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [reordering, setReordering] = useState(false)
+  const { addItem } = useCart()
+  const navigate = useNavigate()
+  usePageTitle(order ? `Order ${order.orderNumber}` : 'Order')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -49,6 +56,29 @@ export default function OrderDetail() {
     }
   }
 
+  /** Puts every still-available line back in the bag at its original quantity. */
+  const handleBuyAgain = async () => {
+    setReordering(true)
+    setError('')
+    const failed = []
+    for (const item of order.items) {
+      if (!item.productId) { failed.push(item.productName); continue }
+      try {
+        await addItem(item.productId, item.quantity)
+      } catch {
+        failed.push(item.productName)
+      }
+    }
+    setReordering(false)
+    if (failed.length === order.items.length) {
+      setError('None of these items can be ordered again right now.')
+    } else if (failed.length > 0) {
+      setError(`Added to your bag, except: ${failed.join(', ')} (unavailable or low on stock).`)
+    } else {
+      navigate('/cart')
+    }
+  }
+
   if (loading) return <Loader label="Loading your order…" />
   if (!order) {
     return (
@@ -66,8 +96,6 @@ export default function OrderDetail() {
   const cancelled = order.status === 'CANCELLED'
   const currentStep = PIPELINE.indexOf(order.status)
   const canCancel = CANCELLABLE.includes(order.status)
-  const itemsTotal = order.items.reduce((sum, i) => sum + Number(i.subtotal), 0)
-  const shipping = Number(order.totalAmount) - itemsTotal
 
   return (
     <>
@@ -78,9 +106,19 @@ export default function OrderDetail() {
           <h1>{order.orderNumber}</h1>
           <p className="muted">Placed {formatDate(order.createdAt)}</p>
         </div>
-        <div className="badges">
-          <span className={statusClass(order.status)}>{order.status}</span>
-          <span className={statusClass(order.paymentStatus)}>{order.paymentStatus}</span>
+        <div className="page-head-actions">
+          <div className="badges">
+            <span className={statusClass(order.status)}>{order.status}</span>
+            <span className={statusClass(order.paymentStatus)}>{order.paymentStatus}</span>
+          </div>
+          <div className="form-actions">
+            <Link to={`/orders/${order.id}/invoice`} className="btn btn-ghost btn-sm">
+              <PrinterIcon size={15} /> Invoice
+            </Link>
+            <button className="btn btn-primary btn-sm" onClick={handleBuyAgain} disabled={reordering}>
+              <RefreshIcon size={15} /> {reordering ? 'Adding…' : 'Buy again'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -135,11 +173,16 @@ export default function OrderDetail() {
           ))}
 
           <div className="summary-row" style={{ marginTop: '1rem' }}>
-            <span>Items</span><span>{formatCurrency(itemsTotal)}</span>
+            <span>Items</span><span>{formatCurrency(order.subtotal)}</span>
           </div>
+          {Number(order.discount) > 0 && (
+            <div className="summary-row discount-row">
+              <span>Promo {order.couponCode}</span><span>− {formatCurrency(order.discount)}</span>
+            </div>
+          )}
           <div className="summary-row">
-            <span>Shipping</span>
-            <span>{shipping > 0 ? formatCurrency(shipping) : 'Free'}</span>
+            <span>Delivery</span>
+            <span>{Number(order.shipping) > 0 ? formatCurrency(order.shipping) : 'Complimentary'}</span>
           </div>
           <div className="summary-row total">
             <span>Total paid</span><span>{formatCurrency(order.totalAmount)}</span>
@@ -152,7 +195,7 @@ export default function OrderDetail() {
             <p className="ship-block">
               <strong>{order.shippingName}</strong><br />
               {order.shippingAddress}<br />
-              {order.shippingCity} — {order.shippingPincode}<br />
+              {order.shippingCity}{order.shippingState ? `, ${order.shippingState}` : ''} — {order.shippingPincode}<br />
               {order.shippingPhone}
             </p>
           </section>

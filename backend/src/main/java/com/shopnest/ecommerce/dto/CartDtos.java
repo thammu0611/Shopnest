@@ -23,16 +23,26 @@ public class CartDtos {
             String name,
             String imageUrl,
             BigDecimal price,
+            BigDecimal mrp,
             Integer quantity,
             Integer stock,
             BigDecimal subtotal
     ) {}
 
+    /**
+     * couponCode is the code the shopper applied; discount is zero and
+     * couponMessage explains why when the code does not currently qualify.
+     */
     public record CartResponse(
             List<CartItemResponse> items,
             int totalItems,
             BigDecimal subtotal,
+            BigDecimal discount,
             BigDecimal shipping,
-            BigDecimal total
+            BigDecimal total,
+            String couponCode,
+            String couponDescription,
+            String couponMessage,
+            BigDecimal freeShippingThreshold
     ) {}
 }
